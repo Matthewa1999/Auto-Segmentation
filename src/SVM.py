@@ -54,7 +54,7 @@ def testing(testingDirectory, model, smoothing=False):
     plotPredHist = False
     savePredHist = False
 
-    plotSegHist = True
+    plotSegHist = False
     saveSegHist = False
 
     # Print Confusion matrix values

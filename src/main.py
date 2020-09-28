@@ -26,4 +26,4 @@ import pickle
 modelFile = '/Users/matthewarnold/Desktop/AutoSeg Local/Models/2017ABAI.sav'
 model = pickle.load(open(modelFile, 'rb'))
 testingDirectory = '/Users/matthewarnold/Desktop/AutoSeg Local/Testing'
-results = testing(testingDirectory, model, True)
+results = testing(testingDirectory, model, False)
