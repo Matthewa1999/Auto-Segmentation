@@ -28,34 +28,30 @@ def training(trainingDirectory):
 
 def testing(testingDirectory, model, smoothing=False):
 
-    pTArr = np.array([])
-    pFArr = np.array([])
-    rTArr = np.array([])
-    rFArr = np.array([])
-    fTArr = np.array([])
-    fFArr = np.array([])
-    aArr = np.array([])
-
     # plotting and other instantiations
     num = 1
+    totBinResults = np.empty([7])
+    totConfResults = np.array([0, 0, 0, 0])
+    totStamps = np.empty([10])
     threshArr = np.arange(0, 20) * 0.5
     pCount = np.zeros(len(threshArr))
     nCount = np.zeros(len(threshArr))
-    fPtot, fNtot, tPtot, tNtot = 0, 0, 0, 0
     segmentsArr = np.array([])
 
     # Print Results
     resultsPrint = True
 
     # Print segments
-    segmentsPrint = True
+    segmentsPrint = False
 
     # Plot/Save Histograms
     plotPredHist = False
     savePredHist = False
+    savePredLoc = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/Histograms/Predictions/'
 
     plotSegHist = False
     saveSegHist = False
+    saveSegLoc = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/Histograms/Segments/'
 
     # Print Confusion matrix values
     printConf = False
@@ -68,15 +64,18 @@ def testing(testingDirectory, model, smoothing=False):
     # Ignore Boundaries
     ignoreBoundaries = False
 
-    #Remove extra segments
+    # Remove extra segments
     segRemove = True
+
+    # Print Stamp Measure
+    stampPrint = False
 
 
 
     for entry in os.listdir(testingDirectory):
         if os.path.isfile(os.path.join(testingDirectory, entry)) and entry[-4:] == '.npz':
 
-            featOrder, featArr, gTruth, truthWindow = fileOpen(testingDirectory + '/' + entry)
+            featOrder, featArr, gTruth, truthWindow, blockTimes = fileOpen(testingDirectory + '/' + entry)
             preds = model.predict(featArr)
 
             preds -= 1
@@ -86,42 +85,41 @@ def testing(testingDirectory, model, smoothing=False):
 
             # Plot confusion Matrix
 
-            pT, pF, rT, rF, fT, fF, accuracy, fP, fN, tP, tN, pred = evalAcc(procPred, gTruth, ignoreBoundaries)
-            fPtot += fP
-            fNtot += fN
-            tPtot += tP
-            tNtot += tN
+            binResults, confResults, pred, diffMat = evalAcc(procPred, gTruth, truthWindow, blockTimes, ignoreBoundaries)
+            totConfResults += confResults
+            totStamps = np.vstack((totStamps, diffMat))
+
 
             # Visualize Predictions on gTruth
             visualizePred(pred, gTruth, entry, num, viz, saveViz, savePlots)
             num += 1
 
             samples = len(gTruth)
-            pCount, nCount, threshArr = histogramsPredCalc(fP, fN, threshArr, pCount, nCount, samples)
+            pCount, nCount, threshArr = histogramsPredCalc(confResults[1], confResults[2], threshArr, pCount, nCount, samples)
 
+            if (segmentsPrint or plotSegHist):
+                segmentsArr, numSeg = countSegments(pred, segmentsArr, (segmentsPrint or plotSegHist))
 
-            segmentsArr, numSeg = countSegments(pred, segmentsArr, (segmentsPrint or plotSegHist))
+            totBinResults = np.vstack((totBinResults, binResults))
 
-            pTArr = np.append(pTArr, pT)
-            pFArr = np.append(pFArr, pF)
-            rTArr = np.append(rTArr, rT)
-            rFArr = np.append(rFArr, rF)
-            fTArr = np.append(fTArr, fT)
-            fFArr = np.append(fFArr, fF)
-            aArr = np.append(aArr, accuracy)
+    totBinResults = totBinResults[1:, :].mean(0)
 
-    results = np.array([round(np.mean(pTArr), 5), round(np.mean(pFArr), 5), round(np.mean(rTArr), 5), round(np.mean(rFArr), 5), round(np.mean(fTArr), 5), round(np.mean(fFArr), 5), round(np.mean(aArr), 5)])
+    # Visuals and Metrics for full file set, rather than individual
+    plotPredHistogram(pCount, nCount, threshArr, savePredLoc, smoothing, plotPredHist, savePredHist)
+    plotSegHistogram(segmentsArr, saveSegLoc, smoothing, plotSegHist, saveSegHist)
+    confusionMat(totConfResults, printConf)
+    stampMean = totStamps[1:, :].mean(0)
+    stampStdev = totStamps[1:, :].std(0)
 
-    # Visual stuff
-    plotPredHistogram(pCount, nCount, threshArr, smoothing, plotPredHist, savePredHist)
-    plotSegHistogram(segmentsArr, smoothing, plotSegHist, saveSegHist)
-    confusionMat(fPtot, fNtot, tPtot, tNtot, printConf)
     if segmentsPrint:
         print(np.mean(segmentsArr))
     if resultsPrint:
-        print(results)
+        print(totBinResults)
+    if stampPrint:
+        print(stampMean)
+        print(stampStdev)
 
-    return results
+    return totBinResults
 
 def visualizePred(procPred, gTruth, entry, num, plot=False, plotSave = False, saveLoc = ''):
     if plot:
@@ -152,11 +150,15 @@ def visualizePred(procPred, gTruth, entry, num, plot=False, plotSave = False, sa
         if plotSave:
             plt.savefig(saveLoc + '/' + entry[:-4] + '.png')
 
-def confusionMat(fP, fN, tP, tN, printCons=False):
+def confusionMat(confResults, printCons=False):
     if printCons:
+        tN = confResults[0]
+        fP = confResults[1]
+        fN = confResults[2]
+        tP = confResults[3]
         print("\t\t\t\tPred Nonmusic, Pred Music")
-        print("Actual Nonmusic \t" + str(tN) + "\t\t" + str(fP))
-        print("Actual Music    \t" + str(fN) + "\t\t" + str(tP))
+        print("Actual Nonmusic \t" + str(tN) + ": " + str(tN/(tN + fP)) + "\t\t" + str(fP)) + ": " + str(fP/(tN + fP))
+        print("Actual Music    \t" + str(fN) + ": " + str(fN/(fN + tP)) + "\t\t" + str(tP)) + ": " + str(tP/(fN + tP))
 
 def countSegments(procPred, segmentsArr, use=False):
     if use:
@@ -165,9 +167,8 @@ def countSegments(procPred, segmentsArr, use=False):
         segmentsArr = np.append(segmentsArr, numSeg)
     return segmentsArr, numSeg
 
-def plotSegHistogram(segmentsArr, smoothing=False, plot=False, save=False):
+def plotSegHistogram(segmentsArr, saveSegLoc='', smoothing=False, plot=False, save=False):
     if plot:
-        saveLoc = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/Histograms/Segments/'
 
         # FILE NAME, the rest is automatic
         testGroup = '2018ConcertBandFlute'
@@ -192,7 +193,7 @@ def plotSegHistogram(segmentsArr, smoothing=False, plot=False, save=False):
         plt.ylabel('Number of files')
         plt.suptitle(testGroup + ' Segments' + smoothStr)
         if save:
-            plt.savefig(saveLoc + testGroup + smoothSave + '.png')
+            plt.savefig(saveSegLoc + testGroup + smoothSave + '.png')
 
 def histogramsPredCalc(fP, fN, threshArr, pCount, nCount, samples):
     if (fP/samples > np.max(threshArr/100) or fN/samples > np.max(threshArr/100)):
@@ -207,9 +208,8 @@ def histogramsPredCalc(fP, fN, threshArr, pCount, nCount, samples):
     nCount[nPlace] = nCount[nPlace] + 1
     return pCount, nCount, threshArr
 
-def plotPredHistogram(pCount, nCount, threshArr, smoothing=False, plot=False, save=False):
+def plotPredHistogram(pCount, nCount, threshArr, savePredLoc, smoothing=False, plot=False, save=False):
     if plot:
-        saveLoc = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/Histograms/Predictions/'
 
         # FILE NAME, the rest is automatic
         testGroup = '2018ConcertBandClar'
@@ -230,7 +230,7 @@ def plotPredHistogram(pCount, nCount, threshArr, smoothing=False, plot=False, sa
         plt.ylabel('Number of files')
         plt.suptitle(testGroup + ' - false positives' + smoothStr)
         if save:
-            plt.savefig(saveLoc + testGroup + 'Fp' + smoothSave + '.png')
+            plt.savefig(savePredLoc + testGroup + 'Fp' + smoothSave + '.png')
 
         fig2 = plt.figure(figsize=[12, 4.8])
         plt.bar(x, nCount)
@@ -240,7 +240,7 @@ def plotPredHistogram(pCount, nCount, threshArr, smoothing=False, plot=False, sa
         plt.ylabel('Number of files')
         plt.suptitle(testGroup + ' - false negatives' + smoothStr)
         if save:
-            plt.savefig(saveLoc + testGroup + 'Fn' + smoothSave + '.png')
+            plt.savefig(savePredLoc + testGroup + 'Fn' + smoothSave + '.png')
 
 def postProc(predictions, smoothing=False, segRemove=False):
 
@@ -291,7 +291,7 @@ def postProc(predictions, smoothing=False, segRemove=False):
 
     return predictions
 
-def evalAcc(predictions, truth, ignoreBoundaries=False):
+def evalAcc(predictions, truth, stampWindows, blockTimes, ignoreBoundaries=False):
 
     truth = np.array(truth.reshape((len(truth), )), dtype=bool)
     predictions = np.array(predictions.reshape((len(predictions), )), dtype=bool)
@@ -313,6 +313,7 @@ def evalAcc(predictions, truth, ignoreBoundaries=False):
     accuracyT = np.sum(mask == truth)/np.sum(truth)
     accuracyF = np.sum(np.logical_and(mask, ~truth))/np.sum(~truth)
     accuracy = (accuracyT+accuracyF)/2
+    binResults = np.array([pT, pF, rT, rF, fT, fF, accuracy])
 
     # false positives and negatives for histograms
     fP = np.sum(np.logical_and(~mask, predictions))
@@ -320,4 +321,21 @@ def evalAcc(predictions, truth, ignoreBoundaries=False):
     tP = np.sum(np.logical_and(mask, predictions))
     tN = np.sum(np.logical_and(mask, ~predictions))
 
-    return pT, pF, rT, rF, fT, fF, accuracy, fP, fN, tP, tN, predictions
+    confResults = np.array([tN, fP, fN, tP])
+
+    # deviation of time stamps
+    predDiff = np.diff(predictions)
+    predChange = np.where(abs(predDiff) == 1)[0]
+    predStamps = np.empty((5, 2))
+    for x in np.arange(0, len(predChange)):
+        if x > len(stampWindows):
+            break
+        if x % 2 == 0:
+            predStamps[int(x/2), 0] = blockTimes[predChange[x] + 1]
+        else:
+            predStamps[int(x/2), 1] = blockTimes[predChange[x] + 1]
+    # if negative, the prediction was early, if positive pred too late
+    diffMat = predStamps - stampWindows
+    diffMat = np.reshape(diffMat, (1, 10))
+
+    return binResults, confResults, predictions, diffMat

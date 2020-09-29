@@ -87,7 +87,7 @@ def groundTruth(directory, blockTimes):
         maskVec = reduce(np.logical_and, mask)
         groundVec[maskVec==True] = 1
     y = np.array([groundVec + 1])
-    return y, truthWindows
+    return y, truthWindows, blockTimes
 
 
 def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = False):
@@ -108,10 +108,10 @@ def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = Fal
                 y, fs = load(audioDirectory + '/' + fileNum + '.mp3', mono=True)
                 tDirectory = textDirectory + '/' + entry
                 featureArr, blockTimes = blockAndRunLerch(y, fs)
-                groundVec, truthWindows = groundTruth(tDirectory, blockTimes)
+                groundVec, truthWindows, blockTimes = groundTruth(tDirectory, blockTimes)
                 featureOrder = ['rms', 'specCrest', 'specCent', 'zcr', 'specRolloff', 'specFlux', 'mfccCoeff']
                 if writeFiles:
-                    np.savez(writeDirectory + '/' + fileNum, featureOrder, featureArr, groundVec.T, truthWindows)
+                    np.savez(writeDirectory + '/' + fileNum, featureOrder, featureArr, groundVec.T, truthWindows, blockTimes)
 
             except:
                 notFound.append(fileNum)
