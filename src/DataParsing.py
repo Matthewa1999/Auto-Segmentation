@@ -129,7 +129,8 @@ def fileOpen(directory):
     featureArr = file['arr_1']
     groundVec = file['arr_2']
     truthWindow = file['arr_3']
+    blockTimes = file['arr_4']
 
     np.load = np_load_old
 
-    return featureOrder, featureArr, groundVec, truthWindow
+    return featureOrder, featureArr, groundVec, truthWindow, blockTimes

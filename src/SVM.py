@@ -37,6 +37,7 @@ def testing(testingDirectory, model, smoothing=False):
     pCount = np.zeros(len(threshArr))
     nCount = np.zeros(len(threshArr))
     segmentsArr = np.array([])
+    absMeanStamps = np.array([])
 
     # Print Results
     resultsPrint = True
@@ -52,6 +53,10 @@ def testing(testingDirectory, model, smoothing=False):
     plotSegHist = False
     saveSegHist = False
     saveSegLoc = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/Histograms/Segments/'
+
+    plotStampHist = True
+    saveStampHist = True
+    saveStampLoc = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/Histograms/Stamps/'
 
     # Print Confusion matrix values
     printConf = False
@@ -86,19 +91,20 @@ def testing(testingDirectory, model, smoothing=False):
             # Plot confusion Matrix
 
             binResults, confResults, pred, diffMat = evalAcc(procPred, gTruth, truthWindow, blockTimes, ignoreBoundaries)
-            totConfResults += confResults
-            totStamps = np.vstack((totStamps, diffMat))
-
+            if 10 <= countSegments(pred, segmentsArr, False) <= 11:
+                totConfResults += confResults
+                totStamps = np.vstack((totStamps, diffMat))
+                absMeanStamps = np.append(absMeanStamps, np.mean(np.abs(diffMat)))
 
             # Visualize Predictions on gTruth
-            visualizePred(pred, gTruth, entry, num, viz, saveViz, savePlots)
+            overlayPred(pred, gTruth, entry, num, viz, saveViz, savePlots)
             num += 1
 
             samples = len(gTruth)
             pCount, nCount, threshArr = histogramsPredCalc(confResults[1], confResults[2], threshArr, pCount, nCount, samples)
 
             if (segmentsPrint or plotSegHist):
-                segmentsArr, numSeg = countSegments(pred, segmentsArr, (segmentsPrint or plotSegHist))
+                segmentsArr, numSeg = countSegments(pred, segmentsArr, True)
 
             totBinResults = np.vstack((totBinResults, binResults))
 
@@ -107,21 +113,36 @@ def testing(testingDirectory, model, smoothing=False):
     # Visuals and Metrics for full file set, rather than individual
     plotPredHistogram(pCount, nCount, threshArr, savePredLoc, smoothing, plotPredHist, savePredHist)
     plotSegHistogram(segmentsArr, saveSegLoc, smoothing, plotSegHist, saveSegHist)
+    plotStampHistogram(absMeanStamps, saveStampLoc, smoothing, plotStampHist, saveStampHist)
     confusionMat(totConfResults, printConf)
-    stampMean = totStamps[1:, :].mean(0)
-    stampStdev = totStamps[1:, :].std(0)
+
+    totStamps = totStamps[1:, :]
+    stampMeanSeg = totStamps.mean(0)
+    stampAbsMeanSeg = np.abs(totStamps).mean(0)
+    stampStdevSeg = totStamps.std(0)
+    stampMean = np.mean(stampMeanSeg)
+    stampAbsMean = np.mean(stampAbsMeanSeg)
+    stampStdev = np.mean(stampStdevSeg)
 
     if segmentsPrint:
         print(np.mean(segmentsArr))
     if resultsPrint:
         print(totBinResults)
     if stampPrint:
-        print(stampMean)
-        print(stampStdev)
+        with np.printoptions(precision=4, suppress=True):
+            print("Mean distance:")
+            print(stampMeanSeg)
+            print(stampMean)
+            print("Abs Mean:")
+            print(stampAbsMeanSeg)
+            print(stampAbsMean)
+            print("Deviation:")
+            print(stampStdevSeg)
+            print(stampStdev)
 
     return totBinResults
 
-def visualizePred(procPred, gTruth, entry, num, plot=False, plotSave = False, saveLoc = ''):
+def overlayPred(procPred, gTruth, entry, num, plot=False, plotSave = False, saveLoc = ''):
     if plot:
         cArr = []
         sX = []
@@ -139,8 +160,6 @@ def visualizePred(procPred, gTruth, entry, num, plot=False, plotSave = False, sa
                     cArr += ['blue']
                     sX += [x[i]]
                     sY += [gTruth[i]]
-        # gTruth = np.reshape(gTruth, [1,len(gTruth)])
-        # plt.scatter(x, gTruth)
         fig = plt.figure(num, figsize=[12, 7])
         plt.plot(x, gTruth, label=entry[:-4])
         plt.scatter(sX, sY, c=cArr)
@@ -149,6 +168,11 @@ def visualizePred(procPred, gTruth, entry, num, plot=False, plotSave = False, sa
         plt.ylabel('Classification')
         if plotSave:
             plt.savefig(saveLoc + '/' + entry[:-4] + '.png')
+
+def plotPred(pred):
+    x = np.arange(0, len(pred)) / 60
+    fig = plt.figure(0, figsize=[12, 7])
+    plt.plot(x, pred)
 
 def confusionMat(confResults, printCons=False):
     if printCons:
@@ -161,11 +185,13 @@ def confusionMat(confResults, printCons=False):
         print("Actual Music    \t" + str(fN) + ": " + str(fN/(fN + tP)) + "\t\t" + str(tP)) + ": " + str(tP/(fN + tP))
 
 def countSegments(procPred, segmentsArr, use=False):
+
+    diffArr = np.diff(procPred)
+    numSeg = (np.sum(np.abs(diffArr))+1)
     if use:
-        diffArr = np.diff(procPred)
-        numSeg = (np.sum(np.abs(diffArr))+1)
         segmentsArr = np.append(segmentsArr, numSeg)
-    return segmentsArr, numSeg
+        return segmentsArr, numSeg
+    return numSeg
 
 def plotSegHistogram(segmentsArr, saveSegLoc='', smoothing=False, plot=False, save=False):
     if plot:
@@ -210,7 +236,6 @@ def histogramsPredCalc(fP, fN, threshArr, pCount, nCount, samples):
 
 def plotPredHistogram(pCount, nCount, threshArr, savePredLoc, smoothing=False, plot=False, save=False):
     if plot:
-
         # FILE NAME, the rest is automatic
         testGroup = '2018ConcertBandClar'
 
@@ -242,23 +267,56 @@ def plotPredHistogram(pCount, nCount, threshArr, savePredLoc, smoothing=False, p
         if save:
             plt.savefig(savePredLoc + testGroup + 'Fn' + smoothSave + '.png')
 
+def plotStampHistogram(absMeanStamps, saveLoc='', smoothing=False, plot=False, save=False):
+    if plot:
+
+        # FILE NAME, the rest is automatic
+        testGroup = '2018ConcertBandBbClar'
+
+        if smoothing:
+            smoothStr = ' with smoothing'
+            smoothSave = 'WS'
+        else:
+            smoothStr = ''
+            smoothSave = ''
+
+        absMeanStamps = absMeanStamps.astype(int)
+        fig1 = plt.figure(figsize=[12, 6])
+        countsArr = np.zeros(np.max(absMeanStamps) + 1)
+        for ind in absMeanStamps:
+            countsArr[ind] = countsArr[ind] + 1
+        x = np.arange(np.max(absMeanStamps) + 1)
+        plt.bar(x, countsArr)
+        plt.yticks(np.arange(np.max(countsArr) + 2))
+        fig1.autofmt_xdate()
+        plt.xlabel('Abs Mean of Segment Timestamp Differences (s)')
+        plt.ylabel('Number of files')
+        plt.suptitle(testGroup + ' Stamps' + smoothStr)
+        if save:
+            plt.savefig(saveLoc + testGroup + smoothSave + '.png')
+
 def postProc(predictions, smoothing=False, segRemove=False):
 
     if smoothing:
         predDiff = np.diff(predictions)
         predFixed = np.copy(predictions)
 
-        m1 = np.where(predDiff == -1)[0]
-        if np.sum(m1 >= len(predDiff) - 2) > 0:
-            m1 = m1[:-np.sum(m1 >= len(predDiff) - 1)]
-        m2 = m1[np.where(predDiff[m1 + 1] == 1)[0]] + 1
-        predFixed[m2] = 1.0
-
+        # Fixes 0 1 0
         m3 = np.where(predDiff == 1)[0]
         if np.sum(m3 >= len(predDiff) - 2) > 0:
             m3 = m3[:-np.sum(m3 >= len(predDiff) - 1)]
         m4 = m3[np.where(predDiff[m3 + 1] == -1)[0]] + 1
         predFixed[m4] = 0.0
+
+        # Recalculates diff
+        predDiff = np.diff(predFixed)
+
+        # Fixes 1 0 1
+        m1 = np.where(predDiff == -1)[0]
+        if np.sum(m1 >= len(predDiff) - 2) > 0:
+            m1 = m1[:-np.sum(m1 >= len(predDiff) - 1)]
+        m2 = m1[np.where(predDiff[m1 + 1] == 1)[0]] + 1
+        predFixed[m2] = 1.0
 
         predictions = predFixed
 
@@ -280,6 +338,8 @@ def postProc(predictions, smoothing=False, segRemove=False):
             #nonMusToMus = np.insert(nonMusToMus, 0, 0)
             nonMusSections = nonMusToMus - musToNonMus
             while(numSeg > 11 or np.min(nonMusSections[nonMusSections > 0]) < 2):
+                # plotPred(predictions)
+
                 shortest = np.argmin(nonMusSections[nonMusSections > 0])
                 startInd = musToNonMus[shortest] + 1
                 endInd = nonMusToMus[shortest] + 1
@@ -287,6 +347,9 @@ def postProc(predictions, smoothing=False, segRemove=False):
                 nonMusSections[shortest] = np.max(nonMusSections)
                 numSeg = numSeg - 2
 
+            #     plt.clf()
+            # plotPred(predictions)
+            # plt.clf()
 
 
     return predictions
