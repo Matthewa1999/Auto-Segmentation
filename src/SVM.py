@@ -43,7 +43,7 @@ def testing(testingDirectory, model, smoothing=False):
     resultsPrint = True
 
     # Print segments
-    segmentsPrint = False
+    segmentsPrint = True
 
     # Plot/Save Histograms
     plotPredHist = False
@@ -64,7 +64,7 @@ def testing(testingDirectory, model, smoothing=False):
     # Visualize predictions on gTruth
     viz = False
     saveViz = False
-    savePlots = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/VisualizePreds'
+    savePlots = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/VisualizePreds/RemoveSeg/'
 
     # Ignore Boundaries
     ignoreBoundaries = False
@@ -73,7 +73,7 @@ def testing(testingDirectory, model, smoothing=False):
     segRemove = True
 
     # Print Stamp Measure
-    stampPrint = False
+    stampPrint = True
 
 
 
@@ -95,6 +95,8 @@ def testing(testingDirectory, model, smoothing=False):
                 totConfResults += confResults
                 totStamps = np.vstack((totStamps, diffMat))
                 absMeanStamps = np.append(absMeanStamps, np.mean(np.abs(diffMat)))
+                if np.mean(np.abs(diffMat)) > 115:
+                    print(entry[:-4])
 
             # Visualize Predictions on gTruth
             overlayPred(pred, gTruth, entry, num, viz, saveViz, savePlots)
@@ -160,14 +162,15 @@ def overlayPred(procPred, gTruth, entry, num, plot=False, plotSave = False, save
                     cArr += ['blue']
                     sX += [x[i]]
                     sY += [gTruth[i]]
-        fig = plt.figure(num, figsize=[12, 7])
+        fig = plt.figure(num, figsize=[15, 7])
         plt.plot(x, gTruth, label=entry[:-4])
-        plt.scatter(sX, sY, c=cArr)
+        plt.plot(x, procPred/2)
+        # plt.scatter(sX, sY, c=cArr)
         fig.suptitle(entry[:-4])
         plt.xlabel('Time (minutes)\nRed = False Negative; Blue = False Positive')
         plt.ylabel('Classification')
         if plotSave:
-            plt.savefig(saveLoc + '/' + entry[:-4] + '.png')
+            plt.savefig(saveLoc + entry[:-4] + '.png')
 
 def plotPred(pred):
     x = np.arange(0, len(pred)) / 60
@@ -282,6 +285,7 @@ def plotStampHistogram(absMeanStamps, saveLoc='', smoothing=False, plot=False, s
 
         absMeanStamps = absMeanStamps.astype(int)
         fig1 = plt.figure(figsize=[12, 6])
+        absMeanStamps[absMeanStamps < 0] = 0
         countsArr = np.zeros(np.max(absMeanStamps) + 1)
         for ind in absMeanStamps:
             countsArr[ind] = countsArr[ind] + 1
@@ -322,6 +326,7 @@ def postProc(predictions, smoothing=False, segRemove=False):
 
     if segRemove:
         segArray = np.array([])
+        #predictions[0:8] = 0
         segArray, numSeg = countSegments(predictions, segArray, True)
         if numSeg > 11:
             predDiff = np.diff(predictions)
@@ -335,7 +340,6 @@ def postProc(predictions, smoothing=False, segRemove=False):
                 nonMusToMus = nonMusToMus[1:]
                 nonMusToMus = np.append(nonMusToMus, musToNonMus[-1])
 
-            #nonMusToMus = np.insert(nonMusToMus, 0, 0)
             nonMusSections = nonMusToMus - musToNonMus
             while(numSeg > 11 or np.min(nonMusSections[nonMusSections > 0]) < 2):
                 # plotPred(predictions)
@@ -391,7 +395,7 @@ def evalAcc(predictions, truth, stampWindows, blockTimes, ignoreBoundaries=False
     predChange = np.where(abs(predDiff) == 1)[0]
     predStamps = np.empty((5, 2))
     for x in np.arange(0, len(predChange)):
-        if x > len(stampWindows):
+        if x > 10:
             break
         if x % 2 == 0:
             predStamps[int(x/2), 0] = blockTimes[predChange[x] + 1]
