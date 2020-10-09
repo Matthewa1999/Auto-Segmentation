@@ -54,8 +54,8 @@ def testing(testingDirectory, model, smoothing=False):
     saveSegHist = False
     saveSegLoc = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/Histograms/Segments/'
 
-    plotStampHist = True
-    saveStampHist = True
+    plotStampHist = False
+    saveStampHist = False
     saveStampLoc = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/Histograms/Stamps/'
 
     # Print Confusion matrix values
@@ -88,15 +88,16 @@ def testing(testingDirectory, model, smoothing=False):
 
             procPred = postProc(preds, smoothing, segRemove)
 
-            # Plot confusion Matrix
-
             binResults, confResults, pred, diffMat = evalAcc(procPred, gTruth, truthWindow, blockTimes, ignoreBoundaries)
+
             if 10 <= countSegments(pred, segmentsArr, False) <= 11:
+                # if np.abs(diffMat[9]) > 20:
+                    # print(entry)
                 totConfResults += confResults
                 totStamps = np.vstack((totStamps, diffMat))
                 absMeanStamps = np.append(absMeanStamps, np.mean(np.abs(diffMat)))
-                if np.mean(np.abs(diffMat)) > 115:
-                    print(entry[:-4])
+                if np.mean(np.abs(diffMat)) > 10:
+                    print(entry)
 
             # Visualize Predictions on gTruth
             overlayPred(pred, gTruth, entry, num, viz, saveViz, savePlots)
@@ -143,6 +144,168 @@ def testing(testingDirectory, model, smoothing=False):
             print(stampStdev)
 
     return totBinResults
+
+def postProc(predictions, smoothing=False, segRemove=False):
+
+    predictions[0] = 0
+
+    if smoothing:
+        predDiff = np.diff(predictions)
+        predFixed = np.copy(predictions)
+
+        # Fixes 0 1 0
+        m3 = np.where(predDiff == 1)[0]
+        if np.sum(m3 >= len(predDiff) - 2) > 0:
+            m3 = m3[:-np.sum(m3 >= len(predDiff) - 1)]
+        m4 = m3[np.where(predDiff[m3 + 1] == -1)[0]] + 1
+        predFixed[m4] = 0.0
+
+        # Recalculates diff
+        predDiff = np.diff(predFixed)
+
+        # Fixes 1 0 1
+        m1 = np.where(predDiff == -1)[0]
+        if np.sum(m1 >= len(predDiff) - 2) > 0:
+            m1 = m1[:-np.sum(m1 >= len(predDiff) - 1)]
+        m2 = m1[np.where(predDiff[m1 + 1] == 1)[0]] + 1
+        predFixed[m2] = 1.0
+
+        predictions = predFixed
+
+    if segRemove:
+        segArray = np.array([])
+        _, numSeg = countSegments(predictions, segArray, True)
+        if numSeg > 11:
+            predDiff = np.diff(predictions)
+            musToNonMus = np.where(predDiff == -1)[0]
+            nonMusToMus = np.where(predDiff == 1)[0]
+            nonMus = np.copy(nonMusToMus)
+            if len(musToNonMus) > len(nonMusToMus):
+                musToNonMus = musToNonMus[:-1]
+            elif len(nonMusToMus) > len(musToNonMus):
+                musToNonMus = np.append(musToNonMus, len(predictions))
+                nonMusToMus = nonMusToMus[1:]
+                nonMusToMus = np.append(nonMusToMus, musToNonMus[-1])
+            else:
+                nonMusToMus = nonMusToMus[1:]
+                nonMusToMus = np.append(nonMusToMus, musToNonMus[-1])
+
+
+            nonMusSectionLengths = nonMusToMus - musToNonMus
+            musSectionLengths = musToNonMus - nonMus
+
+            while(numSeg > 11 or np.min(nonMusSectionLengths[nonMusSectionLengths > 0]) < 2):
+
+                predDiff = np.diff(predictions)
+                musToNonMus = np.where(predDiff == -1)[0]
+                nonMusToMus = np.where(predDiff == 1)[0]
+                nonMus = np.copy(nonMusToMus)
+                if len(musToNonMus) > len(nonMusToMus):
+                    musToNonMus = musToNonMus[:-1]
+                elif len(nonMusToMus) > len(musToNonMus):
+                    musToNonMus = np.append(musToNonMus, len(predictions))
+                    nonMusToMus = nonMusToMus[1:]
+                    nonMusToMus = np.append(nonMusToMus, musToNonMus[-1])
+                else:
+                    nonMusToMus = nonMusToMus[1:]
+                    nonMusToMus = np.append(nonMusToMus, musToNonMus[-1])
+
+                nonMusSectionLengths = nonMusToMus - musToNonMus
+                musSectionLengths = musToNonMus - nonMus
+
+                # plotPred(predictions)
+
+                shortMus = np.argmin(musSectionLengths[musSectionLengths > 0])
+
+                musLenLimit = 4
+                windowCheckSize = 6
+
+                if musSectionLengths[shortMus] < musLenLimit:
+                    startInd = nonMus[shortMus] + 1
+                    endInd = musToNonMus[shortMus] + 1
+
+                    if startInd < windowCheckSize + 1:
+                        checkLeft = predictions[1:startInd]
+                    else:
+                        checkLeft = predictions[startInd-windowCheckSize:startInd-1]
+
+                    if len(predictions) - endInd < windowCheckSize + 1:
+                        checkRight = predictions[endInd:-1]
+                    else:
+                        checkRight = predictions[endInd+1:endInd+windowCheckSize]
+
+                    if (np.sum(checkLeft) + np.sum(checkRight)) < windowCheckSize:
+                        predictions[startInd:endInd] = 0
+                        musSectionLengths[shortMus] = np.max(musSectionLengths)
+                        _, numSeg = countSegments(predictions, segArray, True)
+                        # plt.clf()
+                        continue
+
+                shortNonMus = np.argmin(nonMusSectionLengths[nonMusSectionLengths > 0])
+                startInd = musToNonMus[shortNonMus] + 1
+                endInd = nonMusToMus[shortNonMus] + 1
+                predictions[startInd:endInd] = 1
+                nonMusSectionLengths[shortNonMus] = np.max(nonMusSectionLengths)
+                _, numSeg = countSegments(predictions, segArray, True)
+
+            #     plt.clf()
+            # plotPred(predictions)
+            # plt.clf()
+
+
+    return predictions
+
+def evalAcc(predictions, truth, stampWindows, blockTimes, ignoreBoundaries=False):
+
+    truth = np.array(truth.reshape((len(truth), )), dtype=bool)
+    predictions = np.array(predictions.reshape((len(predictions), )), dtype=bool)
+
+    if ignoreBoundaries:
+        tDiff = np.diff(truth)
+        switches = np.where(np.abs(tDiff) == 1)[0]
+        predictions[switches + 1] = truth[switches + 1]
+        predictions[switches] = truth[switches]
+
+    pT = precision_score(truth, predictions)
+    pF = precision_score(~truth, ~predictions)
+    rT = recall_score(truth, predictions)
+    rF = recall_score(~truth, ~predictions)
+    fT = f1_score(truth, predictions)
+    fF = f1_score(~truth, ~predictions)
+
+    mask = (predictions == truth)
+    accuracyT = np.sum(mask == truth)/np.sum(truth)
+    accuracyF = np.sum(np.logical_and(mask, ~truth))/np.sum(~truth)
+    accuracy = (accuracyT+accuracyF)/2
+    binResults = np.array([pT, pF, rT, rF, fT, fF, accuracy])
+
+    # false positives and negatives for histograms
+    fP = np.sum(np.logical_and(~mask, predictions))
+    fN = np.sum(np.logical_and(~mask, ~predictions))
+    tP = np.sum(np.logical_and(mask, predictions))
+    tN = np.sum(np.logical_and(mask, ~predictions))
+
+    confResults = np.array([tN, fP, fN, tP])
+
+    # deviation of time stamps
+    predDiff = np.diff(predictions)
+    predChange = np.where(abs(predDiff) == 1)[0]
+    predStamps = np.empty((5, 2))
+    if len(predChange) < 10:
+        predStamps[4, 1] = blockTimes[-1]
+    for x in np.arange(0, len(predChange)):
+        if x >= 10:
+            break
+        if x % 2 == 0:
+            predStamps[int(x/2), 0] = blockTimes[predChange[x] + 1]
+        else:
+            predStamps[int(x/2), 1] = blockTimes[predChange[x] + 1]
+    # if negative, the prediction was early, if positive pred too late
+    diffMat = np.array(predStamps - stampWindows)
+    diffMat = np.reshape(diffMat, (1, 10))
+    diffMat = np.squeeze(diffMat, axis=0)
+
+    return binResults, confResults, predictions, diffMat
 
 def overlayPred(procPred, gTruth, entry, num, plot=False, plotSave = False, saveLoc = ''):
     if plot:
@@ -291,118 +454,10 @@ def plotStampHistogram(absMeanStamps, saveLoc='', smoothing=False, plot=False, s
             countsArr[ind] = countsArr[ind] + 1
         x = np.arange(np.max(absMeanStamps) + 1)
         plt.bar(x, countsArr)
-        plt.yticks(np.arange(np.max(countsArr) + 2))
+        plt.yticks(np.arange((np.max(countsArr) + 5), step=5))
         fig1.autofmt_xdate()
         plt.xlabel('Abs Mean of Segment Timestamp Differences (s)')
         plt.ylabel('Number of files')
         plt.suptitle(testGroup + ' Stamps' + smoothStr)
         if save:
             plt.savefig(saveLoc + testGroup + smoothSave + '.png')
-
-def postProc(predictions, smoothing=False, segRemove=False):
-
-    if smoothing:
-        predDiff = np.diff(predictions)
-        predFixed = np.copy(predictions)
-
-        # Fixes 0 1 0
-        m3 = np.where(predDiff == 1)[0]
-        if np.sum(m3 >= len(predDiff) - 2) > 0:
-            m3 = m3[:-np.sum(m3 >= len(predDiff) - 1)]
-        m4 = m3[np.where(predDiff[m3 + 1] == -1)[0]] + 1
-        predFixed[m4] = 0.0
-
-        # Recalculates diff
-        predDiff = np.diff(predFixed)
-
-        # Fixes 1 0 1
-        m1 = np.where(predDiff == -1)[0]
-        if np.sum(m1 >= len(predDiff) - 2) > 0:
-            m1 = m1[:-np.sum(m1 >= len(predDiff) - 1)]
-        m2 = m1[np.where(predDiff[m1 + 1] == 1)[0]] + 1
-        predFixed[m2] = 1.0
-
-        predictions = predFixed
-
-    if segRemove:
-        segArray = np.array([])
-        #predictions[0:8] = 0
-        segArray, numSeg = countSegments(predictions, segArray, True)
-        if numSeg > 11:
-            predDiff = np.diff(predictions)
-            musToNonMus = np.where(predDiff == -1)[0]
-            nonMusToMus = np.where(predDiff == 1)[0]
-            if len(musToNonMus) > len(nonMusToMus):
-                musToNonMus = musToNonMus[:-1]
-            elif len(nonMusToMus) > len(musToNonMus):
-                nonMusToMus = nonMusToMus[1:]
-            else:
-                nonMusToMus = nonMusToMus[1:]
-                nonMusToMus = np.append(nonMusToMus, musToNonMus[-1])
-
-            nonMusSections = nonMusToMus - musToNonMus
-            while(numSeg > 11 or np.min(nonMusSections[nonMusSections > 0]) < 2):
-                # plotPred(predictions)
-
-                shortest = np.argmin(nonMusSections[nonMusSections > 0])
-                startInd = musToNonMus[shortest] + 1
-                endInd = nonMusToMus[shortest] + 1
-                predictions[startInd:endInd] = 1
-                nonMusSections[shortest] = np.max(nonMusSections)
-                numSeg = numSeg - 2
-
-            #     plt.clf()
-            # plotPred(predictions)
-            # plt.clf()
-
-
-    return predictions
-
-def evalAcc(predictions, truth, stampWindows, blockTimes, ignoreBoundaries=False):
-
-    truth = np.array(truth.reshape((len(truth), )), dtype=bool)
-    predictions = np.array(predictions.reshape((len(predictions), )), dtype=bool)
-
-    if ignoreBoundaries:
-        tDiff = np.diff(truth)
-        switches = np.where(np.abs(tDiff) == 1)[0]
-        predictions[switches + 1] = truth[switches + 1]
-        predictions[switches] = truth[switches]
-
-    pT = precision_score(truth, predictions)
-    pF = precision_score(~truth, ~predictions)
-    rT = recall_score(truth, predictions)
-    rF = recall_score(~truth, ~predictions)
-    fT = f1_score(truth, predictions)
-    fF = f1_score(~truth, ~predictions)
-
-    mask = (predictions == truth)
-    accuracyT = np.sum(mask == truth)/np.sum(truth)
-    accuracyF = np.sum(np.logical_and(mask, ~truth))/np.sum(~truth)
-    accuracy = (accuracyT+accuracyF)/2
-    binResults = np.array([pT, pF, rT, rF, fT, fF, accuracy])
-
-    # false positives and negatives for histograms
-    fP = np.sum(np.logical_and(~mask, predictions))
-    fN = np.sum(np.logical_and(~mask, ~predictions))
-    tP = np.sum(np.logical_and(mask, predictions))
-    tN = np.sum(np.logical_and(mask, ~predictions))
-
-    confResults = np.array([tN, fP, fN, tP])
-
-    # deviation of time stamps
-    predDiff = np.diff(predictions)
-    predChange = np.where(abs(predDiff) == 1)[0]
-    predStamps = np.empty((5, 2))
-    for x in np.arange(0, len(predChange)):
-        if x > 10:
-            break
-        if x % 2 == 0:
-            predStamps[int(x/2), 0] = blockTimes[predChange[x] + 1]
-        else:
-            predStamps[int(x/2), 1] = blockTimes[predChange[x] + 1]
-    # if negative, the prediction was early, if positive pred too late
-    diffMat = predStamps - stampWindows
-    diffMat = np.reshape(diffMat, (1, 10))
-
-    return binResults, confResults, predictions, diffMat
