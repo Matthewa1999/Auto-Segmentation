@@ -293,16 +293,16 @@ def processFlipSeg(predictions, segCount, dataMean, dataStd, blockTimes):
                 if (np.sum(checkLeft) + np.sum(checkRight)) < windowCheckSize:
                     predictions[startInd:endInd] = 0
                     musSectionLengths[shortMus] = np.max(musSectionLengths)
-                    numSeg -= 2
+                    numSeg = countSegments(predictions)
                     # plt.clf()
                     continue
 
-            shortNonMus = np.argmin(nonMusSectionLengths[nonMusSectionLengths > 0])
+            shortNonMus = np.argmin(nonMusSectionLengths[1:]) + 1
             startInd = musToNonMus[shortNonMus] + 1
             endInd = nonMusToMus[shortNonMus] + 1
             predictions[startInd:endInd] = 1
             nonMusSectionLengths[shortNonMus] = np.max(nonMusSectionLengths)
-            numSeg -= 2
+            numSeg = countSegments(predictions)
 
 
         #     plt.clf()
@@ -319,8 +319,8 @@ def processFlipSeg(predictions, segCount, dataMean, dataStd, blockTimes):
         # plotPred(predictions)
         predictions[startInd:endInd] = flipTo
         # plt.clf()
-        # plotPred(predictions)
-        # plt.clf()
+        plotPred(predictions)
+        plt.clf()
 
     return predictions
 
@@ -635,6 +635,7 @@ def calcProbability(predictions, nonMusSectionLengths, musSectionLengths, dataMe
         probArray = np.append(probArray, prod)
         predCopy = np.copy(predictions)
 
+    plotPred(predictions)
     segFlip = np.argmax(probArray) + 1
     if segFlip >= len(startArr):
         segFlip = len(startArr) - 1
