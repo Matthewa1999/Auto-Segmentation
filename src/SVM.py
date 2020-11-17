@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn import svm
 from DataParsing import*
+from PostProcessingVisuals import*
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import f1_score
@@ -41,6 +42,7 @@ def testing(testingDirectory, model, smoothing=True):
     segmentsArr = np.array([])
     absMeanStamps = np.array([])
     musLengths = np.empty([5])
+    nonMusTLengths = np.empty([5])
     fileLength = np.empty([1])
     badList = np.array([])
     badDict = np.array([])
@@ -117,9 +119,10 @@ def testing(testingDirectory, model, smoothing=True):
                 totConfResults += confResults
                 totStamps = np.vstack((totStamps, diffMat))
                 # absMeanStamps = np.append(absMeanStamps, np.mean(np.abs(diffMat)))
-                _, musTimeLengths, _, _, _, length, _, _, _ = segmentLengths(pred, blockTimes)
+                nonMusTimeLengths, musTimeLengths, _, _, _, length, _, _, _ = segmentLengths(pred, blockTimes)
                 fileLength = np.append(fileLength, length)
                 musLengths = np.vstack((musLengths, musTimeLengths))
+                nonMusTLengths = np.vstack((nonMusTLengths, nonMusTimeLengths))
                 totBinResults = np.vstack((totBinResults, binResults))
                 goodBool = False
 
@@ -138,8 +141,11 @@ def testing(testingDirectory, model, smoothing=True):
     segCount = 12
 
     firstSetSegLengths = musLengths[1:, :]
+    firstSetNonMusTLengths = nonMusTLengths[1:, :]
     firstSetfileLengths = fileLength[1:]
     firstSetSegPerc = firstSetSegLengths / firstSetfileLengths.T[:, None]
+    goodNonMusTLengths = firstSetNonMusTLengths.mean(0)
+    goodNonMusTStd = firstSetNonMusTLengths.std(0)
     segmentPercMean = firstSetSegPerc.mean(0)
     segmentPercStd = firstSetSegPerc.std(0)
 
@@ -163,7 +169,8 @@ def testing(testingDirectory, model, smoothing=True):
         truthWindow = badDict[i]["truthWindow"]
         blockTimes = badDict[i]["blockTimes"]
 
-        pred = processFlipSeg(procPred, segCount, segmentPercMean, segmentPercStd, blockTimes)
+        pred = processFlipSeg(procPred, segCount, segmentPercMean, segmentPercStd, goodNonMusTLengths, goodNonMusTStd,
+                              blockTimes)
 
         binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
 
@@ -199,6 +206,7 @@ def testing(testingDirectory, model, smoothing=True):
 
     # Print outputs
     with np.printoptions(precision=2, suppress=True):
+        print(goodCounter)
         if segmentsPrint:
             print(np.mean(segmentsArr))
         if resultsPrint:
@@ -253,12 +261,12 @@ def postProc(predictions, smoothing=False, remNonMus=False, remMus=False, segCou
 
     return predictions, goodBool
 
-def processFlipSeg(predictions, segCount, dataMean, dataStd, blockTimes):
+def processFlipSeg(predictions, segCount, dataMean, dataStd, nonMusMean, nonMusStd, blockTimes):
 
     numSeg = countSegments(predictions)
 
     nonMusTimeLengths, musTimeLengths, nonMusSectionLengths, musSectionLengths, \
-    segPerc, fileLength, musToNonMus, nonMus, nonMusToMus = segmentLengths(predictions)
+    segPerc, fileLength, musToNonMus, nonMus, nonMusToMus = segmentLengths(predictions, blockTimes)
 
     if numSeg > (segCount + 1):
 
@@ -314,11 +322,12 @@ def processFlipSeg(predictions, segCount, dataMean, dataStd, blockTimes):
 
     if 12 <= numSeg <= 13:
         segFlip, startInd, endInd, flipTo = calcProbability(predictions, nonMusSectionLengths,
-                                                    musSectionLengths, dataMean, dataStd, blockTimes)
+                                                    musSectionLengths, dataMean, dataStd, nonMusMean, nonMusStd,
+                                                            blockTimes)
 
-        # plotPred(predictions)
+        plotPred(predictions)
         predictions[startInd:endInd] = flipTo
-        # plt.clf()
+        plt.clf()
         plotPred(predictions)
         plt.clf()
 
@@ -376,49 +385,6 @@ def evalAcc(predictions, truth, stampWindows, blockTimes, ignoreBoundaries=False
 
     return binResults, confResults, predictions, diffMat
 
-def overlayPred(procPred, gTruth, entry, num, plot=False, plotSave = False, saveLoc = ''):
-    if plot:
-        cArr = []
-        sX = []
-        sY = []
-        x = np.arange(0, len(gTruth)) / 60
-        for i in np.arange(0, len(gTruth)):
-            if (procPred[i] != gTruth[i]):
-                # false negative
-                if (procPred[i] == 0):
-                    cArr += ['red']
-                    sX += [x[i]]
-                    sY += [gTruth[i]]
-                # false positive
-                else:
-                    cArr += ['blue']
-                    sX += [x[i]]
-                    sY += [gTruth[i]]
-        fig = plt.figure(num, figsize=[15, 7])
-        plt.plot(x, gTruth, label=entry[:-4])
-        plt.plot(x, procPred/2)
-        # plt.scatter(sX, sY, c=cArr)
-        fig.suptitle(entry[:-4])
-        plt.xlabel('Time (minutes)\nRed = False Negative; Blue = False Positive')
-        plt.ylabel('Classification')
-        if plotSave:
-            plt.savefig(saveLoc + entry[:-4] + '.png')
-
-def plotPred(pred):
-    x = np.arange(0, len(pred)) / 60
-    fig = plt.figure(0, figsize=[12, 7])
-    plt.plot(x, pred)
-
-def confusionMat(confResults, printCons=False):
-    if printCons:
-        tN = confResults[0]
-        fP = confResults[1]
-        fN = confResults[2]
-        tP = confResults[3]
-        print("\t\t\t\tPred Nonmusic, Pred Music")
-        print("Actual Nonmusic \t" + str(tN) + ": " + str(tN/(tN + fP)) + "\t\t" + str(fP)) + ": " + str(fP/(tN + fP))
-        print("Actual Music    \t" + str(fN) + ": " + str(fN/(fN + tP)) + "\t\t" + str(tP)) + ": " + str(tP/(fN + tP))
-
 def countSegments(procPred, segmentsArr=[], use=False):
 
     diffArr = np.diff(procPred)
@@ -427,109 +393,6 @@ def countSegments(procPred, segmentsArr=[], use=False):
         segmentsArr = np.append(segmentsArr, numSeg)
         return segmentsArr, numSeg
     return numSeg
-
-def plotSegHistogram(segmentsArr, saveSegLoc='', smoothing=False, plot=False, save=False):
-    if plot:
-
-        # FILE NAME, the rest is automatic
-        testGroup = '2018ConcertBandFlute'
-
-        if smoothing:
-            smoothStr = ' with smoothing'
-            smoothSave = 'WS'
-        else:
-            smoothStr = ''
-            smoothSave = ''
-
-        fig1 = plt.figure(figsize=[12, 6])
-        segmentsArr = segmentsArr.astype(int)
-        countsArr = np.zeros(int(np.max(segmentsArr)) + 1)
-        for ind in segmentsArr:
-            countsArr[ind] = countsArr[ind] + 1
-        x = np.arange(np.max(segmentsArr) + 1)
-        plt.bar(x, countsArr)
-        plt.yticks(np.arange(np.max(countsArr) + 2))
-        fig1.autofmt_xdate()
-        plt.xlabel('Number of Segments')
-        plt.ylabel('Number of files')
-        plt.suptitle(testGroup + ' Segments' + smoothStr)
-        if save:
-            plt.savefig(saveSegLoc + testGroup + smoothSave + '.png')
-
-def histogramsPredCalc(fP, fN, threshArr, pCount, nCount, samples):
-    if (fP/samples > np.max(threshArr/100) or fN/samples > np.max(threshArr/100)):
-        newPercent = max([np.ceil((fP/samples) * 100), np.ceil((fN/samples) * 100)])
-        threshArr = np.arange(0, (newPercent*2 + 1)) * 0.5
-        newIndices = len(threshArr)-len(pCount)
-        pCount = np.append(pCount, np.zeros(newIndices))
-        nCount = np.append(nCount, np.zeros(newIndices))
-    pPlace = np.where((fP/samples) < threshArr/100)[0][0]
-    pCount[pPlace] = pCount[pPlace] + 1
-    nPlace = np.where((fN/samples) < threshArr/100)[0][0]
-    nCount[nPlace] = nCount[nPlace] + 1
-    return pCount, nCount, threshArr
-
-def plotPredHistogram(pCount, nCount, threshArr, savePredLoc, smoothing=False, plot=False, save=False):
-    if plot:
-        # FILE NAME, the rest is automatic
-        testGroup = '2018ConcertBandClar'
-
-        if smoothing:
-            smoothStr = ' with smoothing'
-            smoothSave = 'WS'
-        else:
-            smoothStr = ''
-            smoothSave = ''
-
-        fig1 = plt.figure(figsize=[12, 4.8])
-        x = np.arange(len(pCount))
-        plt.bar(x, pCount)
-        plt.xticks(x, threshArr)
-        fig1.autofmt_xdate()
-        plt.xlabel('Percent of fP in samples')
-        plt.ylabel('Number of files')
-        plt.suptitle(testGroup + ' - false positives' + smoothStr)
-        if save:
-            plt.savefig(savePredLoc + testGroup + 'Fp' + smoothSave + '.png')
-
-        fig2 = plt.figure(figsize=[12, 4.8])
-        plt.bar(x, nCount)
-        plt.xticks(x, threshArr)
-        fig2.autofmt_xdate()
-        plt.xlabel('Percent of fN in samples')
-        plt.ylabel('Number of files')
-        plt.suptitle(testGroup + ' - false negatives' + smoothStr)
-        if save:
-            plt.savefig(savePredLoc + testGroup + 'Fn' + smoothSave + '.png')
-
-def plotStampHistogram(absMeanStamps, saveLoc='', smoothing=False, plot=False, save=False):
-    if plot:
-
-        # FILE NAME, the rest is automatic
-        testGroup = '2018ConcertBandAltoSax'
-
-        if smoothing:
-            smoothStr = ' with smoothing'
-            smoothSave = 'WS'
-        else:
-            smoothStr = ''
-            smoothSave = ''
-
-        absMeanStamps = absMeanStamps.astype(int)
-        fig1 = plt.figure(figsize=[12, 6])
-        absMeanStamps[absMeanStamps < 0] = 0
-        countsArr = np.zeros(np.max(absMeanStamps) + 1)
-        for ind in absMeanStamps:
-            countsArr[ind] = countsArr[ind] + 1
-        x = np.arange(np.max(absMeanStamps) + 1)
-        plt.bar(x, countsArr)
-        plt.yticks(np.arange((np.max(countsArr) + 5), step=5))
-        fig1.autofmt_xdate()
-        plt.xlabel('Abs Mean of Segment Timestamp Differences (s)')
-        plt.ylabel('Number of files')
-        plt.suptitle(testGroup + ' Stamps' + smoothStr)
-        if save:
-            plt.savefig(saveLoc + testGroup + smoothSave + '.png')
 
 def segmentLengths(predictions, blockTimes=[]):
 
@@ -570,10 +433,16 @@ def segmentLengths(predictions, blockTimes=[]):
         fileLength = blockTimes[-1]
         segPerc = musSectionLengths / fileLength
 
+    if len(nonMusTimeLengths[1:]) < 5:
+        nonMusTimeLengths = np.append(nonMusSectionLengths, 0)
+
+    nonMusTimeLengths = nonMusTimeLengths[1:]
+
 
     return nonMusTimeLengths, musTimeLengths, nonMusSectionLengths, musSectionLengths, segPerc, fileLength, musToNonMus, nonMus, nonMusToMus
 
-def calcProbability(predictions, nonMusSectionLengths, musSectionLengths, dataMean, dataStd, blockTimes):
+def calcProbability(predictions, nonMusSectionLengths, musSectionLengths, dataMean, dataStd, nonMusMean, nonMusStd,
+                    blockTimes):
 
     i = 0
     mus = True
@@ -603,7 +472,7 @@ def calcProbability(predictions, nonMusSectionLengths, musSectionLengths, dataMe
 
             predCopy[startInd:endInd + 1] = 1
 
-            _, _, _, _, segPerc, _, _, _, _ = segmentLengths(predCopy, blockTimes)
+            nonMusTimeLengths, _, _, _, segPerc, _, _, _, _ = segmentLengths(predCopy, blockTimes)
         else:
             if (i > len(musSectionLengths)-1):
                 break
@@ -618,7 +487,7 @@ def calcProbability(predictions, nonMusSectionLengths, musSectionLengths, dataMe
 
             predCopy[startInd:endInd] = 0
 
-            _, _, _, _, segPerc, _, _, _, _ = segmentLengths(predCopy, blockTimes)
+            nonMusTimeLengths, _, _, _, segPerc, _, _, _, _ = segmentLengths(predCopy, blockTimes)
             i += 1
 
         startArr = np.append(startArr, startInd)
@@ -626,7 +495,11 @@ def calcProbability(predictions, nonMusSectionLengths, musSectionLengths, dataMe
 
         segProbabilities = np.array([])
         for y in np.arange(len(segPerc)):
-            newProb = (1/(dataStd[y] * math.sqrt(2*math.pi))) * math.exp(-0.5 * ((segPerc[y] - dataMean[y]) / dataStd[y])**2)
+            musProb = (1/(dataStd[y] * math.sqrt(2*math.pi))) * \
+                      math.exp(-0.5 * ((segPerc[y] - dataMean[y]) / dataStd[y])**2)
+            nonMusProb = (1/(nonMusStd[y] * math.sqrt(2*math.pi))) * \
+                         math.exp(-0.5 * ((nonMusTimeLengths[y] - nonMusMean[y]) / nonMusStd[y])**2)
+            newProb = musProb * nonMusProb
             segProbabilities = np.append(segProbabilities, newProb)
 
         prod = 1
@@ -635,7 +508,7 @@ def calcProbability(predictions, nonMusSectionLengths, musSectionLengths, dataMe
         probArray = np.append(probArray, prod)
         predCopy = np.copy(predictions)
 
-    plotPred(predictions)
+    # plotPred(predictions)
     segFlip = np.argmax(probArray) + 1
     if segFlip >= len(startArr):
         segFlip = len(startArr) - 1
