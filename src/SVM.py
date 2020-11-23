@@ -79,6 +79,9 @@ def testing(testingDirectory, model, smoothing=True):
     saveViz = False
     savePlots = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/VisualizePreds/RemoveSeg/'
 
+    # Plot f1 histogram
+    f1Plot = True
+
     # Ignore Boundaries
     ignoreBoundaries = False
 
@@ -182,11 +185,6 @@ def testing(testingDirectory, model, smoothing=True):
         finalMusSegLengths[finalIndex] = musTimeLengths
         finalBinResults[finalIndex] = binResults
 
-    # Visuals and Metrics for full file set, rather than individual
-    # plotPredHistogram(pCount, nCount, threshArr, savePredLoc, smoothing, plotPredHist, savePredHist)
-    # plotSegHistogram(segmentsArr, saveSegLoc, smoothing, plotSegHist, saveSegHist)
-    # plotStampHistogram(absMeanStamps, saveStampLoc, smoothing, plotStampHist, saveStampHist)
-    # confusionMat(totConfResults, printConf)
 
     # Final calculations for metrics
     finalMetrics = finalBinResults.mean(0)
@@ -203,6 +201,13 @@ def testing(testingDirectory, model, smoothing=True):
     segmentPercetages = finalMusSegLengths / finalFileLengths.T[:, None]
     segmentPercMean = segmentPercetages.mean(0)
     segmentPercStd = segmentPercetages.std(0)
+
+    # Visuals and Metrics for full file set, rather than individual
+    plotPredHistogram(pCount, nCount, threshArr, savePredLoc, smoothing, plotPredHist, savePredHist)
+    plotSegHistogram(segmentsArr, saveSegLoc, smoothing, plotSegHist, saveSegHist)
+    plotStampHistogram(absMeanStamps, saveStampLoc, smoothing, plotStampHist, saveStampHist)
+    confusionMat(totConfResults, printConf)
+    plotF1Histogram(finalMetrics[:, 4], f1Plot)
 
     # Print outputs
     with np.printoptions(precision=2, suppress=True):

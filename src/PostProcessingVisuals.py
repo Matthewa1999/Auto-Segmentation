@@ -146,6 +146,21 @@ def plotStampHistogram(absMeanStamps, saveLoc='', smoothing=False, plot=False, s
         if save:
             plt.savefig(saveLoc + testGroup + smoothSave + '.png')
 
+def plotF1Histogram(f1Scores, plot=False):
+
+    threshArr = np.arange(0.5, 1, 0.05)
+    count = np.zeros(len(threshArr))
+    for i in f1Scores:
+        count[[i < threshArr][0]] += 1
+
+    fig1 = plt.figure(figsize=[12, 4.8])
+    x = np.arange(len(count))
+    plt.bar(x, count)
+    plt.xticks(x, threshArr)
+    fig1.autofmt_xdate()
+    plt.xlabel('F1 Score of File')
+    plt.ylabel('Number of files')
+
 def plotPred(pred):
     x = np.arange(0, len(pred)) / 60
     fig = plt.figure(0, figsize=[12, 7])
