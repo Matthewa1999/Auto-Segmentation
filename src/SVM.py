@@ -80,7 +80,10 @@ def testing(testingDirectory, model, smoothing=True):
     savePlots = '/Users/matthewarnold/Desktop/AutoSeg Local/Plots/VisualizePreds/RemoveSeg/'
 
     # Plot f1 histogram
-    f1Plot = True
+    f1Plot = False
+
+    # Plot Gaussian over good files length distribution
+    plotGaussian = True
 
     # Ignore Boundaries
     ignoreBoundaries = False
@@ -163,6 +166,9 @@ def testing(testingDirectory, model, smoothing=True):
     finalMusSegLengths[0:goodCounter, :] = musLengths[1:, :]
     finalBinResults[0:goodCounter, :] = totBinResults[1:, :]
 
+    segmentDist = 4
+    plotGaussianOverDis(firstSetSegPerc[:, segmentDist], segmentPercMean[segmentDist], segmentPercStd[segmentDist], plotGaussian)
+
     for i in np.arange(len(badDict)):
         finalIndex = goodCounter + i
 
@@ -207,7 +213,7 @@ def testing(testingDirectory, model, smoothing=True):
     plotSegHistogram(segmentsArr, saveSegLoc, smoothing, plotSegHist, saveSegHist)
     plotStampHistogram(absMeanStamps, saveStampLoc, smoothing, plotStampHist, saveStampHist)
     confusionMat(totConfResults, printConf)
-    plotF1Histogram(finalMetrics[:, 4], f1Plot)
+    plotF1Histogram(finalBinResults[:, 4], f1Plot)
 
     # Print outputs
     with np.printoptions(precision=2, suppress=True):

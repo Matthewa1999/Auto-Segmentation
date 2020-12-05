@@ -147,19 +147,45 @@ def plotStampHistogram(absMeanStamps, saveLoc='', smoothing=False, plot=False, s
             plt.savefig(saveLoc + testGroup + smoothSave + '.png')
 
 def plotF1Histogram(f1Scores, plot=False):
+    if plot:
+        threshArr = np.arange(0.5, 1.1, 0.05)
+        count = np.zeros(len(threshArr))
+        for i in f1Scores:
+            mask = i < threshArr
+            firstTrue = np.where(mask)[0][0]
+            count[firstTrue] += 1
+        count = count[:-1]
 
-    threshArr = np.arange(0.5, 1, 0.05)
-    count = np.zeros(len(threshArr))
-    for i in f1Scores:
-        count[[i < threshArr][0]] += 1
+        fig1 = plt.figure(figsize=[12, 4.8])
+        x = np.arange(len(count))
+        plt.bar(x, count)
+        plt.xticks(x+0.5, np.round(threshArr[:-1], 2))
+        fig1.autofmt_xdate()
+        plt.xlabel('F1 Score of File')
+        plt.ylabel('Number of files')
 
-    fig1 = plt.figure(figsize=[12, 4.8])
-    x = np.arange(len(count))
-    plt.bar(x, count)
-    plt.xticks(x, threshArr)
-    fig1.autofmt_xdate()
-    plt.xlabel('F1 Score of File')
-    plt.ylabel('Number of files')
+def plotGaussianOverDis(segmentPerc, mean, std, plotGaussian):
+    if plotGaussian:
+
+        threshArr = np.arange(0.0, 0.4, 0.015)
+        count = np.zeros(len(threshArr))
+        for i in segmentPerc:
+            mask = i < threshArr
+            firstTrue = np.where(mask)[0][0]
+            count[firstTrue] += 1
+        count = count[:-1]
+
+        fig1 = plt.figure(figsize=[12, 4.8])
+        x = np.arange(len(count))
+        plt.bar(x, count)
+        plt.xticks(x + 0.5, np.round(threshArr[:-1], 2))
+        fig1.autofmt_xdate()
+        plt.xlabel('Segment Percent Length of File')
+        plt.ylabel('Number of files')
+        gaussian = np.zeros(len(threshArr))
+        # for x in np.arange(len(threshArr)):
+        #     gaussian[x] = (1/(std * math.sqrt(2*math.pi))) * math.exp(-0.5 * ((threshArr[x] - mean) / std)**2)
+        # plt.plot()
 
 def plotPred(pred):
     x = np.arange(0, len(pred)) / 60
