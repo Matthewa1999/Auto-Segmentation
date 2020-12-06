@@ -190,4 +190,5 @@ def plotGaussianOverDis(segmentPerc, mean, std, plotGaussian):
 def plotPred(pred):
     x = np.arange(0, len(pred)) / 60
     fig = plt.figure(0, figsize=[12, 7])
+    plt.ylim(0,1)
     plt.plot(x, pred)
