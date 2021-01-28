@@ -46,6 +46,7 @@ def testing(testingDirectory, model, smoothing=True):
     fileLength = np.empty([1])
     badList = np.array([])
     badDict = np.array([])
+    flagList = np.array([])
     goodCounter = 0
     badCounter = 0
     goodBool = False
@@ -116,6 +117,8 @@ def testing(testingDirectory, model, smoothing=True):
                 badDict = np.append(badDict, {"entry": entry, "procPred": procPred, "gTruth": gTruth,
                                               "truthWindow": truthWindow, "blockTimes": blockTimes})
                 badCounter += 1
+            elif countSegments(procPred) < 10 or countSegments(procPred) > 25:
+                flagList = np.append(flagList, entry)
 
             binResults, confResults, pred, diffMat = evalAcc(procPred, gTruth, truthWindow, blockTimes, ignoreBoundaries)
 
@@ -167,29 +170,57 @@ def testing(testingDirectory, model, smoothing=True):
     finalBinResults[0:goodCounter, :] = totBinResults[1:, :]
 
     segmentDist = 4
-    plotGaussianOverDis(firstSetSegPerc[:, segmentDist], segmentPercMean[segmentDist], segmentPercStd[segmentDist], plotGaussian)
+    plotGaussianOverDis(firstSetSegPerc[:, segmentDist], segmentPercMean[segmentDist], segmentPercStd[segmentDist],
+                        plotGaussian)
 
-    for i in np.arange(len(badDict)):
-        finalIndex = goodCounter + i
+    if goodCounter < 10:
+        print("Not enough good files, shortest segment process implemented.")
 
-        entry = badDict[i]["entry"]
-        procPred = badDict[i]["procPred"]
-        gTruth = badDict[i]["gTruth"]
-        truthWindow = badDict[i]["truthWindow"]
-        blockTimes = badDict[i]["blockTimes"]
+        segCount = 10
 
-        pred = processFlipSeg(procPred, segCount, segmentPercMean, segmentPercStd, goodNonMusTLengths, goodNonMusTStd,
-                              blockTimes)
+        for i in np.arange(len(badDict)):
+            finalIndex = goodCounter + i
 
-        binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
+            entry = badDict[i]["entry"]
+            procPred = badDict[i]["procPred"]
+            gTruth = badDict[i]["gTruth"]
+            truthWindow = badDict[i]["truthWindow"]
+            blockTimes = badDict[i]["blockTimes"]
 
-        totConfResults += confResults
-        finalStamps[finalIndex] = diffMat
-        # absMeanStamps = np.append(absMeanStamps, np.mean(np.abs(diffMat)))
-        _, musTimeLengths, _, _, _, fileLength, _, _, _ = segmentLengths(pred, blockTimes)
-        finalFileLengths[finalIndex] = fileLength
-        finalMusSegLengths[finalIndex] = musTimeLengths
-        finalBinResults[finalIndex] = binResults
+            pred = processFlipSeg(procPred, segCount, segmentPercMean, segmentPercStd, goodNonMusTLengths,
+                                  goodNonMusTStd, blockTimes)
+
+            binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
+
+            totConfResults += confResults
+            finalStamps[finalIndex] = diffMat
+            # absMeanStamps = np.append(absMeanStamps, np.mean(np.abs(diffMat)))
+            _, musTimeLengths, _, _, _, fileLength, _, _, _ = segmentLengths(pred, blockTimes)
+            finalFileLengths[finalIndex] = fileLength
+            finalMusSegLengths[finalIndex] = musTimeLengths
+            finalBinResults[finalIndex] = binResults
+    else:
+        for i in np.arange(len(badDict)):
+            finalIndex = goodCounter + i
+
+            entry = badDict[i]["entry"]
+            procPred = badDict[i]["procPred"]
+            gTruth = badDict[i]["gTruth"]
+            truthWindow = badDict[i]["truthWindow"]
+            blockTimes = badDict[i]["blockTimes"]
+
+            pred = processFlipSeg(procPred, segCount, segmentPercMean, segmentPercStd, goodNonMusTLengths,
+                                  goodNonMusTStd, blockTimes)
+
+            binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
+
+            totConfResults += confResults
+            finalStamps[finalIndex] = diffMat
+            # absMeanStamps = np.append(absMeanStamps, np.mean(np.abs(diffMat)))
+            _, musTimeLengths, _, _, _, fileLength, _, _, _ = segmentLengths(pred, blockTimes)
+            finalFileLengths[finalIndex] = fileLength
+            finalMusSegLengths[finalIndex] = musTimeLengths
+            finalBinResults[finalIndex] = binResults
 
 
     # Final calculations for metrics
@@ -336,11 +367,11 @@ def processFlipSeg(predictions, segCount, dataMean, dataStd, nonMusMean, nonMusS
                                                     musSectionLengths, dataMean, dataStd, nonMusMean, nonMusStd,
                                                             blockTimes)
 
-        plotPred(predictions)
+        # plotPred(predictions)
         predictions[startInd:endInd] = flipTo
-        plt.clf()
-        plotPred(predictions)
-        plt.clf()
+        # plt.clf()
+        # plotPred(predictions)
+        # plt.clf()
 
     return predictions
 
