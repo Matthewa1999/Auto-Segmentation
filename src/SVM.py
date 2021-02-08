@@ -84,7 +84,7 @@ def testing(testingDirectory, model, smoothing=True):
     f1Plot = False
 
     # Plot Gaussian over good files length distribution
-    plotGaussian = True
+    plotGaussian = False
 
     # Ignore Boundaries
     ignoreBoundaries = False
@@ -99,6 +99,10 @@ def testing(testingDirectory, model, smoothing=True):
     # Print music segment length info
     lengthPrint = False
 
+    # Writes text files
+    outputTextFiles = False
+    txtAddress = "/Users/matthewarnold/Desktop/AutoSeg Local/TextOutput/2018_CB_BbClar"
+
 
     # File iteration process
     for entry in os.listdir(testingDirectory):
@@ -111,6 +115,9 @@ def testing(testingDirectory, model, smoothing=True):
             gTruth -= 1
 
             procPred, goodBool = postProc(preds, smoothing, False, False)
+
+            if outputTextFiles and goodBool:
+                writeText(procPred, blockTimes, entry[:-4], txtAddress)
 
             if ~goodBool and countSegments(procPred) >= 10:
                 badList = np.append(badList, entry)
@@ -189,6 +196,8 @@ def testing(testingDirectory, model, smoothing=True):
 
             pred = processFlipSeg(procPred, segCount, segmentPercMean, segmentPercStd, goodNonMusTLengths,
                                   goodNonMusTStd, blockTimes)
+            if outputTextFiles:
+                writeText(pred, blockTimes, entry, txtAddress)
 
             binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
 
@@ -211,6 +220,9 @@ def testing(testingDirectory, model, smoothing=True):
 
             pred = processFlipSeg(procPred, segCount, segmentPercMean, segmentPercStd, goodNonMusTLengths,
                                   goodNonMusTStd, blockTimes)
+
+            if outputTextFiles:
+                writeText(pred, blockTimes, entry, txtAddress)
 
             binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
 
@@ -249,11 +261,11 @@ def testing(testingDirectory, model, smoothing=True):
     # Print outputs
     with np.printoptions(precision=2, suppress=True):
         print(goodCounter)
+        print(totalFileCount)
         if segmentsPrint:
             print(np.mean(segmentsArr))
         if resultsPrint:
             print(finalMetrics)
-            print(totBinResults[1:].mean(0))
         if stampPrint:
             print("Mean distance:")
             print(stampMeanSeg)
@@ -563,3 +575,21 @@ def calcProbability(predictions, nonMusSectionLengths, musSectionLengths, dataMe
 
     return segFlip, startInd, endInd, flipTo
 
+def writeText(array, blockTimes, entry, address):
+    newFile = open(address + "/" + entry + ".txt", "w")
+    stampArr = getStamps(array, blockTimes)
+    outputStr = ""
+    for i in np.arange(stampArr.size / 2):
+        index1 = int(i * 2)
+        index2 = int(i * 2 + 1)
+        if index2 >= stampArr.size:
+            stampArr = np.append(stampArr, blockTimes[-1])
+        outputStr = outputStr + str(np.round(stampArr[index1], 9)) + "\t" + "1\t" + \
+                    str(np.round(stampArr[index2] - stampArr[index1], 9)) + "\n"
+    newFile.write(outputStr[:-1])
+    newFile.close()
+
+def getStamps(array, blockTimes):
+    diffArr = np.diff(array)
+    changePoints = np.where(diffArr != 0)[0] - 1
+    return np.array(blockTimes[changePoints])

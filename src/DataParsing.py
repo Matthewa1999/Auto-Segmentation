@@ -90,7 +90,7 @@ def groundTruth(directory, blockTimes):
     return y, truthWindows, blockTimes
 
 
-def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = False):
+def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = False, newData = False):
     # This function takes a directory path to a folder as input. This folder should have the annotation mp3
     # files for the auditions that the user wants to read in.
 
@@ -99,23 +99,46 @@ def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = Fal
 
     files = []
     notFound = []
-    for entry in os.listdir(textDirectory):
-        if os.path.isfile(os.path.join(textDirectory, entry)) and entry[-4:] == '.txt':
-            fileNum = entry[:-4]
 
-            files.append(fileNum)
-            try:
-                y, fs = load(audioDirectory + '/' + fileNum + '.mp3', mono=True)
-                tDirectory = textDirectory + '/' + entry
-                featureArr, blockTimes = blockAndRunLerch(y, fs)
-                groundVec, truthWindows, blockTimes = groundTruth(tDirectory, blockTimes)
-                featureOrder = ['rms', 'specCrest', 'specCent', 'zcr', 'specRolloff', 'specFlux', 'mfccCoeff']
-                if writeFiles:
-                    np.savez(writeDirectory + '/' + fileNum, featureOrder, featureArr, groundVec.T, truthWindows, blockTimes)
+    if newData != True:
+        for entry in os.listdir(textDirectory):
+            if os.path.isfile(os.path.join(textDirectory, entry)) and entry[-4:] == '.txt':
+                fileNum = entry[:-4]
 
-            except:
-                notFound.append(fileNum)
-                print(fileNum)
+                files.append(fileNum)
+                try:
+                    # y, fs = load(audioDirectory + '/' + fileNum + '.mp3', mono=True)
+                    path = os.fspath(audioDirectory + '/' + fileNum + '/' + fileNum + '.mp3')
+                    y, fs = load(path, mono=True)
+                    tDirectory = textDirectory + '/' + entry
+                    featureArr, blockTimes = blockAndRunLerch(y, fs)
+                    groundVec, truthWindows, blockTimes = groundTruth(tDirectory, blockTimes)
+                    featureOrder = ['rms', 'specCrest', 'specCent', 'zcr', 'specRolloff', 'specFlux', 'mfccCoeff']
+                    if writeFiles:
+                        np.savez(writeDirectory + '/' + fileNum, featureOrder, featureArr, groundVec.T, truthWindows, blockTimes)
+
+                except FileNotFoundError:
+                    notFound.append(fileNum)
+                    print(fileNum)
+    else:
+        for entry in os.listdir(audioDirectory):
+            if os.path.isfile(os.path.join(audioDirectory, entry)):
+                fileNum = entry[:-4]
+
+                files.append(fileNum)
+                try:
+                    path = os.fspath(audioDirectory + '/' + fileNum + '/' + fileNum + '.mp3')
+                    y, fs = load(path, mono=True)
+                    tDirectory = textDirectory + '/' + entry
+                    featureArr, blockTimes = blockAndRunLerch(y, fs)
+                    featureOrder = ['rms', 'specCrest', 'specCent', 'zcr', 'specRolloff', 'specFlux', 'mfccCoeff']
+                    if writeFiles:
+                        np.savez(writeDirectory + '/' + fileNum, featureOrder, featureArr, [], [],
+                                 blockTimes)
+
+                except FileNotFoundError:
+                    notFound.append(fileNum)
+                    print(fileNum)
 
     return files
 
