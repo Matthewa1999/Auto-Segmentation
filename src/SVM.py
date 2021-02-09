@@ -100,7 +100,7 @@ def testing(testingDirectory, model, smoothing=True):
     lengthPrint = False
 
     # Writes text files
-    outputTextFiles = False
+    outputTextFiles = True
     txtAddress = "/Users/matthewarnold/Desktop/AutoSeg Local/TextOutput/2018_CB_BbClar"
 
 
@@ -197,7 +197,7 @@ def testing(testingDirectory, model, smoothing=True):
             pred = processFlipSeg(procPred, segCount, segmentPercMean, segmentPercStd, goodNonMusTLengths,
                                   goodNonMusTStd, blockTimes)
             if outputTextFiles:
-                writeText(pred, blockTimes, entry, txtAddress)
+                writeText(pred, blockTimes, entry[:-4], txtAddress)
 
             binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
 
@@ -222,7 +222,7 @@ def testing(testingDirectory, model, smoothing=True):
                                   goodNonMusTStd, blockTimes)
 
             if outputTextFiles:
-                writeText(pred, blockTimes, entry, txtAddress)
+                writeText(pred, blockTimes, entry[:-4], txtAddress)
 
             binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
 
