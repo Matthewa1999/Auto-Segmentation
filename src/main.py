@@ -9,9 +9,9 @@ import pickle
 
 # FILE WRITER *******************************************
 # print("BbClar Missing\n")
-# audioDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/AudioRepo/2016-symphonic-Flute"
-# textDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/TextRepo/2016_SB_Flute"
-# writeDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/NPZ Repo/2016/SB_Flute"
+# audioDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/AudioRepo/2016-middle-Flute"
+# textDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/TextRepo/2016-middle-Flue-ann"
+# writeDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/NPZ Repo/2016/Middle_Flute"
 # files = fileWrite(audioDirectory, textDirectory, writeDirectory, True)
 #
 # print("Flute Missing\n")

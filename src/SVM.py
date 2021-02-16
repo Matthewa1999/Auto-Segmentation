@@ -127,21 +127,24 @@ def testing(testingDirectory, model, smoothing=True):
             elif countSegments(procPred) < 10 or countSegments(procPred) > 25:
                 flagList = np.append(flagList, entry)
 
-            binResults, confResults, pred, diffMat = evalAcc(procPred, gTruth, truthWindow, blockTimes, ignoreBoundaries)
+            try:
+                binResults, confResults, pred, diffMat = evalAcc(procPred, gTruth, truthWindow, blockTimes, ignoreBoundaries)
 
-            # if countSegments(pred, segmentsArr, False) >= 10:
-            if goodBool:
-                goodCounter += 1
-                totConfResults += confResults
-                totStamps = np.vstack((totStamps, diffMat))
-                # absMeanStamps = np.append(absMeanStamps, np.mean(np.abs(diffMat)))
-                nonMusTimeLengths, musTimeLengths, _, _, _, length, _, _, _ = segmentLengths(pred, blockTimes)
-                fileLength = np.append(fileLength, length)
-                musLengths = np.vstack((musLengths, musTimeLengths))
-                nonMusTLengths = np.vstack((nonMusTLengths, nonMusTimeLengths))
-                totBinResults = np.vstack((totBinResults, binResults))
-                goodBool = False
+                # if countSegments(pred, segmentsArr, False) >= 10:
+                if goodBool:
+                    goodCounter += 1
+                    totConfResults += confResults
+                    totStamps = np.vstack((totStamps, diffMat))
+                    # absMeanStamps = np.append(absMeanStamps, np.mean(np.abs(diffMat)))
+                    nonMusTimeLengths, musTimeLengths, _, _, _, length, _, _, _ = segmentLengths(pred, blockTimes)
+                    fileLength = np.append(fileLength, length)
+                    musLengths = np.vstack((musLengths, musTimeLengths))
+                    nonMusTLengths = np.vstack((nonMusTLengths, nonMusTimeLengths))
+                    totBinResults = np.vstack((totBinResults, binResults))
+                    goodBool = False
 
+            except:
+                print("Check txt file for: " + entry[:-4])
 
             # Visualize Predictions on gTruth
             overlayPred(pred, gTruth, entry, num, viz, saveViz, savePlots)
@@ -223,8 +226,10 @@ def testing(testingDirectory, model, smoothing=True):
 
             if outputTextFiles:
                 writeText(pred, blockTimes, entry[:-4], txtAddress)
-
-            binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
+            try:
+                binResults, confResults, pred, diffMat = evalAcc(pred, gTruth, truthWindow, blockTimes)
+            except:
+                print("Check txt file for: " + entry[:-4])
 
             totConfResults += confResults
             finalStamps[finalIndex] = diffMat

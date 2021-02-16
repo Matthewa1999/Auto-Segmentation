@@ -104,6 +104,7 @@ def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = Fal
         for entry in os.listdir(textDirectory):
             if os.path.isfile(os.path.join(textDirectory, entry)) and entry[-4:] == '.txt':
                 fileNum = entry[:-4]
+                # print(fileNum)
 
                 files.append(fileNum)
                 try:
@@ -120,6 +121,8 @@ def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = Fal
                 except FileNotFoundError:
                     notFound.append(fileNum)
                     print(fileNum)
+                except ValueError:
+                    print("error with: " + fileNum)
     else:
         for entry in os.listdir(audioDirectory):
             if os.path.isfile(os.path.join(audioDirectory, entry)):
