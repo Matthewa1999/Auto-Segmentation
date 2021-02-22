@@ -11,7 +11,7 @@ def newData(audioDirectory, writeAddress, modelPath, generateDataReport=True, ke
             numberOfMusicalExercises=5):
     _ = fileWrite(audioDirectory, "", writeAddress, True)
 
-    newDataClassificationWrite(writeAddress, modelPath, writeAddress, generateDataReport, keepNPZFiles,
+    newDataClassificationWrite(writeAddress, writeAddress, modelPath, generateDataReport, keepNPZFiles,
                                numberOfMusicalExercises)
 
 # FILE WRITER *******************************************
@@ -48,11 +48,11 @@ def newData(audioDirectory, writeAddress, modelPath, generateDataReport=True, ke
 
 
 audioDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/AudioRepo/2018-symphonic-Alto Saxophone"
-writeDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/NPZ Repo/NewDataNPZ/2018/SB-AltoSax"
+npzDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/NPZ Repo/NewDataNPZ/2018/test"
+writeDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/NPZ Repo/NewDataNPZ/2018/test"
 modelPath = '/Users/matthewarnold/Desktop/AutoSeg Local/Models/2017ABAI.sav'
-generateDataReport=True
-keepNPZFiles=True
-numberOfMusicalExercises=5
+generateDataReport = True
+keepNPZFiles = False
+numberOfMusicalExercises = 5
 
-newData(audioDirectory, writeAddress, modelPath, generateDataReport, keepNPZFiles,
-            numberOfMusicalExercises)
+newData(audioDirectory, writeDirectory, modelPath, generateDataReport, keepNPZFiles, numberOfMusicalExercises)

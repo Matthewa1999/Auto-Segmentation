@@ -12,7 +12,8 @@ import time
 import os
 import pickle
 
-def newDataClassificationWrite(directory, modelPath, writeAddress, generateDataReport=False, keepNPZFiles=True, numberOfMusicalExercises=5):
+def newDataClassificationWrite(directory, writeAddress, modelPath, generateDataReport=False, keepNPZFiles=True,
+                               numberOfMusicalExercises=5):
 
     # Loads the SVM model
     model = pickle.load(open(modelPath, 'rb'))
@@ -42,7 +43,8 @@ def newDataClassificationWrite(directory, modelPath, writeAddress, generateDataR
                     writeText(postProcessedPreds, blockTimes, entry[:-4], writeAddress)
                     correctSegFileCount += 1
 
-                    nonMusTimeLengths, musTimeLengths, _, _, _, length, _, _, _ = segmentLengths(postProcessedPreds, blockTimes)
+                    nonMusTimeLengths, musTimeLengths, _, _, _, length, _, _, _ = segmentLengths(postProcessedPreds,
+                                                                                                 blockTimes)
                     fileLength = np.append(fileLength, length)
                     musLengths = np.vstack((musLengths, musTimeLengths))
                     nonMusTLengths = np.vstack((nonMusTLengths, nonMusTimeLengths))
@@ -85,8 +87,8 @@ def newDataClassificationWrite(directory, modelPath, writeAddress, generateDataR
                 procPred = secondPassDataDict[i]["procPred"]
                 blockTimes = secondPassDataDict[i]["blockTimes"]
 
-                pred = processFlipSeg(procPred, flipShortestUntilSegmentCount, segmentPercMean, segmentPercStd, firstpassNonMusTLengths,
-                                      firstPassNonMusTStd, blockTimes)
+                pred = processFlipSeg(procPred, flipShortestUntilSegmentCount, segmentPercMean, segmentPercStd,
+                                      firstpassNonMusTLengths, firstPassNonMusTStd, blockTimes)
 
                 writeText(pred, blockTimes, entry[:-4], writeAddress)
             except:
@@ -102,8 +104,8 @@ def newDataClassificationWrite(directory, modelPath, writeAddress, generateDataR
                 procPred = secondPassDataDict[i]["procPred"]
                 blockTimes = secondPassDataDict[i]["blockTimes"]
 
-                pred = processFlipSeg(procPred, flipShortestUntilSegmentCount, segmentPercMean, segmentPercStd, firstpassNonMusTLengths,
-                                      firstPassNonMusTStd, blockTimes)
+                pred = processFlipSeg(procPred, flipShortestUntilSegmentCount, segmentPercMean, segmentPercStd,
+                                      firstpassNonMusTLengths, firstPassNonMusTStd, blockTimes)
 
                 writeText(pred, blockTimes, entry[:-4], writeAddress)
 
@@ -118,7 +120,7 @@ def newDataClassificationWrite(directory, modelPath, writeAddress, generateDataR
     if keepNPZFiles != True:
         for entry in os.listdir(directory):
             if os.path.isfile(os.path.join(directory, entry)) and entry[-4:] == '.npz':
-                os.remove(entry)
+                os.remove(directory + "/" + entry)
 
 def training(trainingDirectory):
     counter = 0
@@ -712,10 +714,10 @@ def getStamps(array, blockTimes):
 def newDataReport(flaggedFileList, writeAddress, correctSegFileCount, secondPassFilesList):
     reportFile = open(writeAddress + "/00DataReport.txt", "w")
     writeStr = ""
-    writeStr += "Total file count: " + str(flaggedFileList.size + correctSegFileCount + secondPassFilesList.size)
-    writeStr += "Correct initial file count: " + str(correctSegFileCount)
-    writeStr += "Second pass file count: " + str(secondPassFilesList.size)
-    writeStr += "Flagged file count: " + str(flaggedFileList.size)
+    writeStr += "Total file count: " + str(flaggedFileList.size + correctSegFileCount + secondPassFilesList.size) + "\n"
+    writeStr += "Correct initial file count: " + str(correctSegFileCount) + "\n"
+    writeStr += "Second pass file count: " + str(secondPassFilesList.size) + "\n"
+    writeStr += "Flagged file count: " + str(flaggedFileList.size) + "\n"
     writeStr += "Flagged files:\n"
 
     for i in np.arange(flaggedFileList.size):
