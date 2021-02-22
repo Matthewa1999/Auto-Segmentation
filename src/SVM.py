@@ -9,6 +9,116 @@ from sklearn.metrics import plot_confusion_matrix
 import matplotlib.pyplot as plt
 import math
 import time
+import os
+import pickle
+
+def newDataClassificationWrite(directory, modelPath, writeAddress, generateDataReport=False, keepNPZFiles=True, numberOfMusicalExercises=5):
+
+    # Loads the SVM model
+    model = pickle.load(open(modelPath, 'rb'))
+
+    # Initializations
+    flaggedFileList = np.array([])
+    secondPassFilesList = np.array([])
+    secondPassDataDict = np.array([])
+    musLengths = np.empty([numberOfMusicalExercises])
+    nonMusTLengths = np.empty([numberOfMusicalExercises])
+    fileLength = np.empty([1])
+    correctSegFileCount = 0
+
+    for entry in os.listdir(directory):
+        if os.path.isfile(os.path.join(directory, entry)) and entry[-4:] == '.npz':
+
+            try:
+                featOrder, featArr, _, _, blockTimes = fileOpen(directory + '/' + entry)
+                rawClassification = model.predict(featArr)
+                rawClassification -= 1
+                segmentsCount = numberOfMusicalExercises * 2
+                postProcessedPreds, correctSegBool = postProc(rawClassification, True, False, False, segmentsCount)
+
+                postProcessSegmentCount = countSegments(postProcessedPreds)
+
+                if correctSegBool:
+                    writeText(postProcessedPreds, blockTimes, entry[:-4], writeAddress)
+                    correctSegFileCount += 1
+
+                    nonMusTimeLengths, musTimeLengths, _, _, _, length, _, _, _ = segmentLengths(postProcessedPreds, blockTimes)
+                    fileLength = np.append(fileLength, length)
+                    musLengths = np.vstack((musLengths, musTimeLengths))
+                    nonMusTLengths = np.vstack((nonMusTLengths, nonMusTimeLengths))
+
+                    correctSegBool = False
+
+                elif postProcessSegmentCount < 10 or postProcessSegmentCount > 25:
+                    flaggedFileList = np.append(flaggedFileList, entry)
+
+                else:
+                    secondPassFilesList = np.append(secondPassFilesList, entry)
+                    secondPassDataDict = np.append(secondPassDataDict, {"entry": entry, "procPred": postProcessedPreds,
+                                                                        "blockTimes": blockTimes})
+            except:
+                print("Error with " + entry[:-4])
+                flaggedFileList = np.append(flaggedFileList, entry)
+
+    # Second pass data calculations
+    firstPassSegLengthTimes = musLengths[1:, :]
+    firstPassNonMusLengthTimes = nonMusTLengths[1:, :]
+    firstPassFullFileLengths = fileLength[1:]
+    firstPassSegmentPercents = firstPassSegLengthTimes / firstPassFullFileLengths.T[:, None]
+    firstpassNonMusTLengths = firstPassNonMusLengthTimes.mean(0)
+    firstPassNonMusTStd = firstPassNonMusLengthTimes.std(0)
+    segmentPercMean = firstPassSegmentPercents.mean(0)
+    segmentPercStd = firstPassSegmentPercents.std(0)
+
+    ################ Second pass begins ###################
+
+    # If this is true, the shortest segment removal process alone is implemented for the remaining files
+    if correctSegFileCount < 25 or (correctSegFileCount/(correctSegFileCount + flaggedFileList.size +
+                                                        secondPassFilesList.size)) < 0.25:
+        print("Not enough good files, shortest segment process implemented.")
+
+        flipShortestUntilSegmentCount = numberOfMusicalExercises * 2
+
+        for i in np.arange(len(secondPassDataDict)):
+            try:
+                entry = secondPassDataDict[i]["entry"]
+                procPred = secondPassDataDict[i]["procPred"]
+                blockTimes = secondPassDataDict[i]["blockTimes"]
+
+                pred = processFlipSeg(procPred, flipShortestUntilSegmentCount, segmentPercMean, segmentPercStd, firstpassNonMusTLengths,
+                                      firstPassNonMusTStd, blockTimes)
+
+                writeText(pred, blockTimes, entry[:-4], writeAddress)
+            except:
+                print("Error with " + entry)
+
+    # This includes the informative process
+    else:
+        flipShortestUntilSegmentCount = (numberOfMusicalExercises * 2) + 2
+
+        for i in np.arange(len(secondPassDataDict)):
+            try:
+                entry = secondPassDataDict[i]["entry"]
+                procPred = secondPassDataDict[i]["procPred"]
+                blockTimes = secondPassDataDict[i]["blockTimes"]
+
+                pred = processFlipSeg(procPred, flipShortestUntilSegmentCount, segmentPercMean, segmentPercStd, firstpassNonMusTLengths,
+                                      firstPassNonMusTStd, blockTimes)
+
+                writeText(pred, blockTimes, entry[:-4], writeAddress)
+
+            except:
+                print("Error with " + entry)
+                flaggedFileList = np.append(flaggedFileList, entry)
+
+    # Generate report txt file
+    if generateDataReport:
+        newDataReport(flaggedFileList, writeAddress, correctSegFileCount, secondPassFilesList)
+
+    if keepNPZFiles != True:
+        for entry in os.listdir(directory):
+            if os.path.isfile(os.path.join(directory, entry)) and entry[-4:] == '.npz':
+                os.remove(entry)
 
 def training(trainingDirectory):
     counter = 0
@@ -183,7 +293,7 @@ def testing(testingDirectory, model, smoothing=True):
     plotGaussianOverDis(firstSetSegPerc[:, segmentDist], segmentPercMean[segmentDist], segmentPercStd[segmentDist],
                         plotGaussian)
 
-    if goodCounter < 10:
+    if goodCounter < 25:
         print("Not enough good files, shortest segment process implemented.")
 
         segCount = 10
@@ -316,9 +426,9 @@ def postProc(predictions, smoothing=False, remNonMus=False, remMus=False, segCou
         predFixed[m2] = 1.0
 
         predictions = predFixed
-        goodBool = segCount <= countSegments(predictions, [], False) <= (segCount + 1)
+        correctSegBool = segCount <= countSegments(predictions, [], False) <= (segCount + 1)
 
-    return predictions, goodBool
+    return predictions, correctSegBool
 
 def processFlipSeg(predictions, segCount, dataMean, dataStd, nonMusMean, nonMusStd, blockTimes):
 
@@ -598,3 +708,18 @@ def getStamps(array, blockTimes):
     diffArr = np.diff(array)
     changePoints = np.where(diffArr != 0)[0] - 1
     return np.array(blockTimes[changePoints])
+
+def newDataReport(flaggedFileList, writeAddress, correctSegFileCount, secondPassFilesList):
+    reportFile = open(writeAddress + "/00DataReport.txt", "w")
+    writeStr = ""
+    writeStr += "Total file count: " + str(flaggedFileList.size + correctSegFileCount + secondPassFilesList.size)
+    writeStr += "Correct initial file count: " + str(correctSegFileCount)
+    writeStr += "Second pass file count: " + str(secondPassFilesList.size)
+    writeStr += "Flagged file count: " + str(flaggedFileList.size)
+    writeStr += "Flagged files:\n"
+
+    for i in np.arange(flaggedFileList.size):
+        writeStr += str(flaggedFileList[i]) + "\n"
+
+    reportFile.write(writeStr[:-1])
+    reportFile.close()

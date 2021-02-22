@@ -90,7 +90,7 @@ def groundTruth(directory, blockTimes):
     return y, truthWindows, blockTimes
 
 
-def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = False, newData = False):
+def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = False, newData = True):
     # This function takes a directory path to a folder as input. This folder should have the annotation mp3
     # files for the auditions that the user wants to read in.
 
@@ -125,8 +125,8 @@ def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = Fal
                     print("error with: " + fileNum)
     else:
         for entry in os.listdir(audioDirectory):
-            if os.path.isfile(os.path.join(audioDirectory, entry)):
-                fileNum = entry[:-4]
+            if os.path.isdir(os.path.join(audioDirectory, entry)):
+                fileNum = entry
 
                 files.append(fileNum)
                 try:
