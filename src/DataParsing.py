@@ -90,7 +90,7 @@ def groundTruth(directory, blockTimes):
     return y, truthWindows, blockTimes
 
 
-def fileWrite(audioDirectory, textDirectory, writeDirectory='', writeFiles = False, newData = True):
+def fileWrite(audioDirectory, textDirectory='', writeDirectory='', writeFiles = True, newData = True):
     # This function takes a directory path to a folder as input. This folder should have the annotation mp3
     # files for the auditions that the user wants to read in.
 

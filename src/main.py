@@ -9,7 +9,7 @@ import pickle
 
 def newData(audioDirectory, writeAddress, modelPath, generateDataReport=True, keepNPZFiles=True,
             numberOfMusicalExercises=5):
-    _ = fileWrite(audioDirectory, "", writeAddress, True)
+    _ = fileWrite(audioDirectory, writeAddress)
 
     newDataClassificationWrite(writeAddress, writeAddress, modelPath, generateDataReport, keepNPZFiles,
                                numberOfMusicalExercises)
@@ -55,4 +55,6 @@ generateDataReport = True
 keepNPZFiles = False
 numberOfMusicalExercises = 5
 
-newData(audioDirectory, writeDirectory, modelPath, generateDataReport, keepNPZFiles, numberOfMusicalExercises)
+# newData(audioDirectory, writeDirectory, modelPath, generateDataReport, keepNPZFiles, numberOfMusicalExercises)
+newDataClassificationWrite(writeDirectory, writeDirectory, modelPath, generateDataReport, keepNPZFiles,
+                               numberOfMusicalExercises)

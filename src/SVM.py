@@ -20,12 +20,14 @@ def newDataClassificationWrite(directory, writeAddress, modelPath, generateDataR
 
     # Initializations
     flaggedFileList = np.array([])
+    firstPassFilesList = np.array([])
     secondPassFilesList = np.array([])
     secondPassDataDict = np.array([])
     musLengths = np.empty([numberOfMusicalExercises])
     nonMusTLengths = np.empty([numberOfMusicalExercises])
     fileLength = np.empty([1])
     correctSegFileCount = 0
+    shortestSegOnlyBool = false
 
     for entry in os.listdir(directory):
         if os.path.isfile(os.path.join(directory, entry)) and entry[-4:] == '.npz':
@@ -41,6 +43,7 @@ def newDataClassificationWrite(directory, writeAddress, modelPath, generateDataR
 
                 if correctSegBool:
                     writeText(postProcessedPreds, blockTimes, entry[:-4], writeAddress)
+                    firstPassFilesList = np.append(firstPassFilesList, entry)
                     correctSegFileCount += 1
 
                     nonMusTimeLengths, musTimeLengths, _, _, _, length, _, _, _ = segmentLengths(postProcessedPreds,
@@ -77,7 +80,7 @@ def newDataClassificationWrite(directory, writeAddress, modelPath, generateDataR
     # If this is true, the shortest segment removal process alone is implemented for the remaining files
     if correctSegFileCount < 25 or (correctSegFileCount/(correctSegFileCount + flaggedFileList.size +
                                                         secondPassFilesList.size)) < 0.25:
-        print("Not enough good files, shortest segment process implemented.")
+        shortestSegOnlyBool = true
 
         flipShortestUntilSegmentCount = numberOfMusicalExercises * 2
 
@@ -115,7 +118,8 @@ def newDataClassificationWrite(directory, writeAddress, modelPath, generateDataR
 
     # Generate report txt file
     if generateDataReport:
-        newDataReport(flaggedFileList, writeAddress, correctSegFileCount, secondPassFilesList)
+        newDataReport(flaggedFileList, writeAddress, correctSegFileCount, firstPassFilesList, secondPassFilesList,
+                      shortestSegOnlyBool)
 
     if keepNPZFiles != True:
         for entry in os.listdir(directory):
@@ -711,17 +715,32 @@ def getStamps(array, blockTimes):
     changePoints = np.where(diffArr != 0)[0] - 1
     return np.array(blockTimes[changePoints])
 
-def newDataReport(flaggedFileList, writeAddress, correctSegFileCount, secondPassFilesList):
+def newDataReport(flaggedFileList, writeAddress, correctSegFileCount, firstPassFilesList, secondPassFilesList,
+                  shortestSegOnlyBool):
     reportFile = open(writeAddress + "/00DataReport.txt", "w")
     writeStr = ""
+    if shortestSegOnlyBool:
+        writeStr += "There were not enough files with the correct number of segments after smoothing for the " \
+                    "informative process to be viable, so the shortest segment removal process was used for all " \
+                    "files. This will most likely decrease prediction accuracy.\n\n"
     writeStr += "Total file count: " + str(flaggedFileList.size + correctSegFileCount + secondPassFilesList.size) + "\n"
     writeStr += "Correct initial file count: " + str(correctSegFileCount) + "\n"
     writeStr += "Second pass file count: " + str(secondPassFilesList.size) + "\n"
     writeStr += "Flagged file count: " + str(flaggedFileList.size) + "\n"
-    writeStr += "Flagged files:\n"
+    writeStr += "\nFlagged files:\n"
 
     for i in np.arange(flaggedFileList.size):
-        writeStr += str(flaggedFileList[i]) + "\n"
+        writeStr += str(flaggedFileList[i][:-4]) + "\n"
+
+    writeStr += "\nPrediction confidence:\n"
+
+    for j in np.arange(firstPassFilesList.size):
+        writeStr += str(firstPassFilesList[j][:-4]) + " 1.0\n"
+
+    writeStr += "\n"
+
+    for x in np.arange(secondPassFilesList.size):
+        writeStr += str(secondPassFilesList[x][:-4]) + " 0.5\n"
 
     reportFile.write(writeStr[:-1])
     reportFile.close()
