@@ -12,7 +12,7 @@ import time
 import os
 import pickle
 
-def newDataClassificationWrite(directory, writeAddress, modelPath, generateDataReport=False, keepNPZFiles=True,
+def classifyFeatureData(directory, writeAddress, modelPath, generateDataReport=False, keepNPZFiles=True,
                                numberOfMusicalExercises=5):
 
     # Loads the SVM model

@@ -7,23 +7,24 @@ from SVM import*
 import pickle
 
 
-def newData(audioDirectory, writeAddress, modelPath, generateDataReport=True, keepNPZFiles=True,
+def annotateNewData(audioDirectory, writeAddress, modelPath, fileList=None, generateDataReport=True, keepNPZFiles=True,
             numberOfMusicalExercises=5):
-    _ = fileWrite(audioDirectory, '', writeAddress)
+    if fileList is None:
+        fileList = []
+    _ = writeFeatureData(audioDirectory, '', writeAddress, fileList)
 
-    newDataClassificationWrite(writeAddress, writeAddress, modelPath, generateDataReport, keepNPZFiles,
+    classifyFeatureData(writeAddress, writeAddress, modelPath, generateDataReport, keepNPZFiles,
                                numberOfMusicalExercises)
 
 # FULL NEW DATA PROCESS ***************************************
 
-audioDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/AudioRepo/2014/2014_SB_BariSax"
-# npzDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/NPZ Repo/NewDataNPZ/2018/test"
-writeDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/TextOutput/2014/2014_SB_BariSax"
+audioDirectory = "/Users/matthewarnold/Desktop/MountDirectory/2018-2019/symphonicband"
+writeDirectory = "/Users/matthewarnold/Desktop/AutoSeg Local/TextOutput/2018/2018_SB_BariSax"
 modelPath = '../Models/2017ABAI.sav'
 generateDataReport = True
 keepNPZFiles = False
 numberOfMusicalExercises = 5
 
-newData(audioDirectory, writeDirectory, modelPath, generateDataReport, keepNPZFiles, numberOfMusicalExercises)
-# newDataClassificationWrite(writeDirectory, writeDirectory, modelPath, generateDataReport, keepNPZFiles,
-#                                numberOfMusicalExercises)
+fileList = []
+
+annotateNewData(audioDirectory, writeDirectory, modelPath, fileList, generateDataReport, keepNPZFiles, numberOfMusicalExercises)
