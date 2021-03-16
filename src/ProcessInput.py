@@ -10,7 +10,7 @@ import time
 
 warnings.simplefilter("ignore", UserWarning)
 
-def writeFeatureData(audioDirectory, textDirectory='', writeDirectory='', fileList=[], writeFiles = True, newData = True):
+def writeFeatureData(audioDirectory, textDirectory='', writeDirectory='', fileList=None, writeFiles = True, newData = True):
     # This function takes a directory path to a folder as input. This folder should have the annotation mp3
     # files for the auditions that the user wants to read in.
 

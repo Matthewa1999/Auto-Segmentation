@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn import svm
-from DataParsing import*
+from ProcessInput import*
 from PostProcessingVisuals import*
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
