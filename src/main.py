@@ -24,6 +24,6 @@ generateDataReport = True
 keepNPZFiles = False
 numberOfMusicalExercises = 5
 
-fileList = None
+fileList = []
 
 annotateNewData(audioDirectory, writeDirectory, modelPath, fileList, generateDataReport, keepNPZFiles, numberOfMusicalExercises)

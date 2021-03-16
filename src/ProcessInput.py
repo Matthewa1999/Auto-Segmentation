@@ -17,6 +17,9 @@ def writeFeatureData(audioDirectory, textDirectory='', writeDirectory='', fileLi
     # Input: folder path directory
     # Output: data (each index represents the audio data of one file)
 
+    if fileList == []:
+        fileList = None
+
     files = []
     notFound = []
 
