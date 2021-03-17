@@ -77,7 +77,6 @@ def writeFeatureData(audioDirectory, textDirectory='', writeDirectory='', fileLi
 
     return files
 
-
 def processBlock(y, fs, blockSize = 4096):
 
     features = 7
@@ -129,7 +128,6 @@ def processBlock(y, fs, blockSize = 4096):
 
     return dataX, blockTimes
 
-
 def processGroundTruth(directory, blockTimes):
     # This function takes a directory path to a folder as input. This folder should have the annotation txt
     # files for the auditions that the user wants to read in.
@@ -155,7 +153,6 @@ def processGroundTruth(directory, blockTimes):
         groundVec[maskVec==True] = 1
     y = np.array([groundVec + 1])
     return y, truthWindows, blockTimes
-
 
 def fileOpen(directory):
     np_load_old = np.load
